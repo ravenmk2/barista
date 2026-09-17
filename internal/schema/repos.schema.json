@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/internal/schema/repos.schema.json",
+  "title": "barista repos.json",
+  "description": "Workspace repository manifest (<workspace>/.barista/repos.json)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["repos"],
+  "properties": {
+    "baseUrl": {
+      "type": "string",
+      "description": "Prefix prepended to relative repo URLs (relative = not containing \"://\" and not starting with \"git@\")"
+    },
+    "defaultBranch": {
+      "type": "string",
+      "description": "Fallback default branch for all repos; overridable per repo, usually omittable (resolved via origin/HEAD, then main/master/trunk probe)"
+    },
+    "config": {
+      "type": "object",
+      "description": "Behavioral defaults for git operations; overridden by command-line flags",
+      "additionalProperties": true,
+      "properties": {
+        "pull.rebase": {
+          "type": "boolean",
+          "description": "Run git pull with --rebase"
+        },
+        "fetch.prune": {
+          "type": "boolean",
+          "description": "Run git fetch with --prune"
+        }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "url"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Logical name, unique across the workspace; used by --repo filtering"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute clone URL (contains \"://\" or starts with \"git@\") or a path joined onto baseUrl"
+          },
+          "path": {
+            "type": "string",
+            "not": { "pattern": "^/|^[A-Za-z]:|^\\\\|(^|/)\\.\\.(/|$)" },
+            "description": "Checkout path relative to workspace root (no absolute path, no .. escape), multi-level allowed; defaults to repos/<name>"
+          },
+          "defaultBranch": {
+            "type": "string",
+            "description": "Per-repo default branch override"
+          },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "uniqueItems": true,
+            "description": "Labels for --label filtering"
+          }
+        }
+      }
+    }
+  }
+}

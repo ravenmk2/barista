@@ -30,3 +30,5 @@ barista git status               # 所有仓库状态，末尾列出有变更的
 barista git checkout <branch>    # 切换分支；没有则从默认分支创建
 barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
 ```
+
+自描述能力：`barista schema`（或 `barista schema list`）列出内嵌的 JSON Schema；`barista schema show repos|config` 输出 schema 原文；`barista schema validate repos|config [file]` 校验配置文件（默认校验当前工作区的 `.barista/<name>.json`），供 AI Agent 与编辑器在线使用。

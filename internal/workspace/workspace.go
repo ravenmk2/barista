@@ -73,6 +73,10 @@ func Load(start string) (*Workspace, error) {
 	return ws, nil
 }
 
+func FindRoot(start string) (string, error) {
+	return findRoot(start)
+}
+
 func findRoot(start string) (string, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
