@@ -1,5 +1,11 @@
 # Barista
 
+[![Release](https://img.shields.io/github/v/release/ravenmk2/barista)](https://github.com/ravenmk2/barista/releases)
+[![Test](https://github.com/ravenmk2/barista/actions/workflows/test.yml/badge.svg)](https://github.com/ravenmk2/barista/actions/workflows/test.yml)
+[![Go version](https://img.shields.io/github/go-mod/go-version/ravenmk2/barista)](go.mod)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ravenmk2/barista)](https://goreportcard.com/report/github.com/ravenmk2/barista)
+[![License](https://img.shields.io/github/license/ravenmk2/barista)](LICENSE)
+
 多仓库工作区的开发环境管理工具，Java 生态优先。
 
 ## 构建
