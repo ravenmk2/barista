@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/config.schema.json",
   "title": "barista config.json",
-  "description": "Workspace-level settings (<workspace>/.barista/config.json), entirely optional",
+  "description": "barista settings; used at user level (~/.config/barista/config.json) and workspace level (<workspace>/.barista/config.json), workspace overrides user",
   "type": "object",
   "additionalProperties": true,
   "properties": {

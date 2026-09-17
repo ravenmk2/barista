@@ -33,13 +33,14 @@ internal/output/    Result 类型 + text / json / tui 三种 renderer
 - 非 TTY 自动降级：无 TUI、无颜色（遵守 `NO_COLOR`）；`--json` 隐含这一切
 - **非 TTY 下永不阻塞等待输入**。本该询问的场景以 `CONFIRMATION_REQUIRED`（exit 2，带 hint + affected）报错；每个交互点必须有对应 flag 或 `--yes` 通路
 - 文本输出高亮语义集中在 `internal/output/color.go`（palette 样式函数 + 启用判定），新命令复用同一套样式函数，不得在命令实现里手写 ANSI 码
-- `barista schema` 输出内嵌 JSON Schema（自描述能力）；schema 单一数据源在仓库根的 `schemas/` 目录，由根包 `schema.go` go:embed，`schema validate` 也以它为校验真相（santhosh-tekuri/jsonschema 编译内嵌 schema）；新增配置文件域时同步在 `schemas/` 添加文件并 embed
+- `barista schema` 输出内嵌 JSON Schema（自描述能力）；schema 单一数据源在 `schemas/` 目录（包即数据目录，`schemas/schemas.go` 与 JSON 同目录 go:embed），`schema validate` 也以它为校验真相（santhosh-tekuri/jsonschema 编译内嵌 schema）；新增配置文件域时同步在 `schemas/` 添加 JSON 文件并 embed
 
 ## 配置分层
 
+- user level：`~/.config/barista/config.json`（全平台统一 XDG 形态，`os.UserHomeDir()` + `.config/barista/config.json`；不存在合法，语法错误报 CONFIG_ERROR）
+- workspace level：`<workspace>/.barista/config.json`（与 user level 同 schema，覆盖 user level）
 - `<workspace>/.barista/repos.json`：仓库清单（事实）+ `config` map（git 操作行为默认值）
-- `<workspace>/.barista/config.json`：工作区级设置（parallel、color）
-- 优先级（低→高）：内置默认 → config.json → repos.json config → 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
+- 优先级（低→高）：内置默认 → user level → workspace level → repos.json config → 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
 - 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**行为偏好**（pull.rebase、fetch.prune）放 config map。拿不准时按此规则裁决
 - 所有层级对未知字段宽容（忽略）
 

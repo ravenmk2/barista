@@ -1,4 +1,4 @@
-package barista
+package schemas
 
 import (
 	"strings"

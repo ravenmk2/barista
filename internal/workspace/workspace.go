@@ -162,18 +162,60 @@ func (w *Workspace) loadConfig() error {
 	if err != nil {
 		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot read .barista/config.json: %v", err)}
 	}
+	cf, err := parseConfig(data, ".barista/config.json")
+	if err != nil {
+		return err
+	}
+	w.Cfg = cf
+	return nil
+}
+
+func UserConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "barista", "config.json"), nil
+}
+
+func LoadUserConfig() (ConfigFile, error) {
+	p, err := UserConfigPath()
+	if err != nil {
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: err.Error()}
+	}
+	data, err := os.ReadFile(p)
+	if os.IsNotExist(err) {
+		return ConfigFile{}, nil
+	}
+	if err != nil {
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot read %s: %v", filepath.ToSlash(p), err)}
+	}
+	return parseConfig(data, filepath.ToSlash(p))
+}
+
+func parseConfig(data []byte, source string) (ConfigFile, error) {
 	var cf ConfigFile
 	if err := json.Unmarshal(data, &cf); err != nil {
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("invalid .barista/config.json: %v", err)}
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("invalid %s: %v", source, err)}
 	}
 	switch cf.Color {
 	case "", "auto", "always", "never":
 	default:
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("config.json: invalid color %q (want auto|always|never)", cf.Color)}
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: invalid color %q (want auto|always|never)", source, cf.Color)}
 	}
 	if cf.Parallel < 0 {
-		return &LoadError{Code: "CONFIG_ERROR", Message: "config.json: parallel must be >= 0"}
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: parallel must be >= 0", source)}
 	}
-	w.Cfg = cf
-	return nil
+	return cf, nil
+}
+
+func MergeConfig(user, ws ConfigFile) ConfigFile {
+	out := user
+	if ws.Color != "" {
+		out.Color = ws.Color
+	}
+	if ws.Parallel != 0 {
+		out.Parallel = ws.Parallel
+	}
+	return out
 }

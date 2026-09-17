@@ -74,12 +74,18 @@ func execute(cmd *cobra.Command, action string, op repoOp) {
 		fail(selErr)
 		return
 	}
+	userCfg, err := workspace.LoadUserConfig()
+	if err != nil {
+		fail(&output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+		return
+	}
+	cfg := workspace.MergeConfig(userCfg, ws.Cfg)
 
 	parallel := 10
 	if cmd.Flags().Changed("parallel") {
 		parallel, _ = cmd.Flags().GetInt("parallel")
-	} else if ws.Cfg.Parallel > 0 {
-		parallel = ws.Cfg.Parallel
+	} else if cfg.Parallel > 0 {
+		parallel = cfg.Parallel
 	}
 	if parallel < 1 {
 		parallel = 1
@@ -105,7 +111,7 @@ func execute(cmd *cobra.Command, action string, op repoOp) {
 		*exitCode = output.ExitCode(results)
 		return
 	}
-	color := output.ColorEnabled(ws.Cfg.Color)
+	color := output.ColorEnabled(cfg.Color)
 	if output.StdoutIsTerminal() {
 		panel := output.NewPanel(command, names, color)
 		for i := range tasks {

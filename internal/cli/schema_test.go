@@ -52,6 +52,36 @@ type validateOutput struct {
 	} `json:"errors"`
 }
 
+type scopedOutput struct {
+	Schema  string `json:"schema"`
+	Results []struct {
+		Scope  string  `json:"scope"`
+		File   *string `json:"file"`
+		Valid  bool    `json:"valid"`
+		Errors []struct {
+			Path    string `json:"path"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	} `json:"results"`
+}
+
+func parseScoped(t *testing.T, stdout string) scopedOutput {
+	t.Helper()
+	var r scopedOutput
+	if err := json.Unmarshal([]byte(stdout), &r); err != nil {
+		t.Fatalf("stdout is not valid JSON: %v\n%s", err, stdout)
+	}
+	return r
+}
+
+func setUserHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	return home
+}
+
 func parseValidate(t *testing.T, stdout string) validateOutput {
 	t.Helper()
 	var r validateOutput
@@ -125,14 +155,94 @@ func TestSchemaValidateWorkspaceRepos(t *testing.T) {
 }
 
 func TestSchemaValidateConfigMissing(t *testing.T) {
+	home := setUserHome(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".barista", "repos.json"), `{"repos":[{"name":"a","url":"a"}]}`)
 	t.Chdir(dir)
 
 	stdout, _, code := runSchema(t, "validate", "config")
-	r := parseValidate(t, stdout)
-	if code != 0 || !r.Valid || r.File != nil {
-		t.Fatalf("code=%d valid=%v file=%v, want code=0 valid=true file=null", code, r.Valid, r.File)
+	r := parseScoped(t, stdout)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if len(r.Results) != 2 {
+		t.Fatalf("want 2 results, got %+v", r.Results)
+	}
+	for i, want := range []string{"user", "workspace"} {
+		if r.Results[i].Scope != want {
+			t.Fatalf("results[%d].scope = %q, want %q", i, r.Results[i].Scope, want)
+		}
+		if r.Results[i].File != nil || !r.Results[i].Valid {
+			t.Errorf("results[%d] = %+v, want file=null valid=true", i, r.Results[i])
+		}
+	}
+	_ = home
+}
+
+func TestSchemaValidateConfigScopes(t *testing.T) {
+	home := setUserHome(t)
+	writeFile(t, filepath.Join(home, ".config", "barista", "config.json"), `{"parallel":20,"color":"never"}`)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".barista", "config.json"), `{"parallel":"ten"}`)
+	t.Chdir(dir)
+
+	stdout, _, code := runSchema(t, "validate", "config")
+	r := parseScoped(t, stdout)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (workspace invalid)", code)
+	}
+	if len(r.Results) != 2 {
+		t.Fatalf("want 2 results, got %+v", r.Results)
+	}
+	if !r.Results[0].Valid || r.Results[0].File == nil {
+		t.Errorf("user result = %+v, want valid with file", r.Results[0])
+	}
+	if r.Results[1].Valid || len(r.Results[1].Errors) == 0 {
+		t.Errorf("workspace result = %+v, want invalid with errors", r.Results[1])
+	}
+	if r.Results[1].Errors[0].Path != "parallel" {
+		t.Errorf("workspace error path = %q, want parallel", r.Results[1].Errors[0].Path)
+	}
+}
+
+func TestSchemaValidateConfigScopeUser(t *testing.T) {
+	home := setUserHome(t)
+	writeFile(t, filepath.Join(home, ".config", "barista", "config.json"), `{"color":"never"}`)
+	t.Chdir(t.TempDir())
+
+	stdout, _, code := runSchema(t, "validate", "config", "--scope", "user")
+	r := parseScoped(t, stdout)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if len(r.Results) != 1 || r.Results[0].Scope != "user" {
+		t.Fatalf("want single user result, got %+v", r.Results)
+	}
+	if !r.Results[0].Valid || r.Results[0].File == nil {
+		t.Errorf("user result = %+v, want valid with file", r.Results[0])
+	}
+}
+
+func TestSchemaValidateScopeWithExplicitFile(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "draft.json")
+	writeFile(t, f, `{}`)
+	_, stderr, code := runSchema(t, "validate", "config", f, "--scope", "user")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "--scope") {
+		t.Errorf("stderr should mention --scope: %s", stderr)
+	}
+}
+
+func TestSchemaValidateReposScopeUser(t *testing.T) {
+	_, stderr, code := runSchema(t, "validate", "repos", "--scope", "user")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "--scope") {
+		t.Errorf("stderr should mention --scope: %s", stderr)
 	}
 }
 
