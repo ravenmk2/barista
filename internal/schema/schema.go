@@ -26,7 +26,7 @@ var entries = map[string]Entry{
 	},
 	"config": {
 		Name:        "config",
-		Description: "global personal settings (<workspace>/.barista/config.json)",
+		Description: "workspace-level settings (<workspace>/.barista/config.json)",
 		Raw:         configSchema,
 	},
 }

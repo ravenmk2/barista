@@ -38,7 +38,7 @@ internal/output/    Result 类型 + text / json / tui 三种 renderer
 ## 配置分层
 
 - `<workspace>/.barista/repos.json`：仓库清单（事实）+ `config` map（git 操作行为默认值）
-- `<workspace>/.barista/config.json`：全局个人设置（parallel、color）
+- `<workspace>/.barista/config.json`：工作区级设置（parallel、color）
 - 优先级（低→高）：内置默认 → config.json → repos.json config → 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
 - 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**行为偏好**（pull.rebase、fetch.prune）放 config map。拿不准时按此规则裁决
 - 所有层级对未知字段宽容（忽略）
