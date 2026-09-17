@@ -1,8 +1,9 @@
-package schema
+package barista
 
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestGet(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Get(%q): %v", name, err)
 		}
-		disk, err := os.ReadFile(name + ".schema.json")
+		disk, err := os.ReadFile(filepath.Join("schemas", name+".schema.json"))
 		if err != nil {
 			t.Fatalf("read disk schema: %v", err)
 		}

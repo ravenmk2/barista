@@ -78,7 +78,7 @@ func TestSchemaListEquivalence(t *testing.T) {
 }
 
 func TestSchemaShowRepos(t *testing.T) {
-	disk, err := os.ReadFile(filepath.Join("..", "schema", "repos.schema.json"))
+	disk, err := os.ReadFile(filepath.Join("..", "..", "schemas", "repos.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package schema
+package barista
 
 import (
 	_ "embed"
@@ -6,10 +6,10 @@ import (
 	"sort"
 )
 
-//go:embed repos.schema.json
+//go:embed schemas/repos.schema.json
 var reposSchema []byte
 
-//go:embed config.schema.json
+//go:embed schemas/config.schema.json
 var configSchema []byte
 
 type Entry struct {
@@ -26,7 +26,7 @@ var entries = map[string]Entry{
 	},
 	"config": {
 		Name:        "config",
-		Description: "workspace-level settings (<workspace>/.barista/config.json)",
+		Description: "global personal settings (<workspace>/.barista/config.json)",
 		Raw:         configSchema,
 	},
 }
