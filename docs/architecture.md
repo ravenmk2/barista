@@ -1,6 +1,21 @@
 # 架构与契约
 
-barista 的设计契约。改动代码前必读；AGENTS.md 只保留速览，本文档是完整版。
+barista 的目录结构与设计契约，改动代码前必读。
+
+## 目录结构
+
+```txt
+cmd/barista/          入口（fang.Execute）
+internal/
+  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + schema.go
+  workspace/        工作区发现（向上找 .barista/）、repos.json 与两级 config.json 加载合并
+  gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
+  runner/           通用并发 worker pool（泛型，不绑定 git 语义）
+  output/           Result 类型 + text/json/tui renderer + 高亮（color.go）
+schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
+docs/               架构与契约文档
+build.sh            交叉编译六平台（--install 装到 ~/.local/bin）
+```
 
 ## 分层契约
 
