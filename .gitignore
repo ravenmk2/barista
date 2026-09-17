@@ -1,0 +1,7 @@
+.idea/
+.vscode/
+.agents/
+
+.temp/
+dist/
+barista.exe
