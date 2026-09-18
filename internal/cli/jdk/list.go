@@ -21,6 +21,10 @@ func listCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			*exitCode = 0
+			_, p, ok := userSettings(cmd)
+			if !ok {
+				return nil
+			}
 			reg, _, ok := loadRegistry(cmd)
 			if !ok {
 				return nil
@@ -41,7 +45,7 @@ func listCmd() *cobra.Command {
 				}
 			}
 			if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
-				printList(reg)
+				printList(reg, p)
 			}
 			finish(cmd, results)
 			return nil
@@ -49,9 +53,9 @@ func listCmd() *cobra.Command {
 	}
 }
 
-func printList(reg *jdk.Registry) {
+func printList(reg *jdk.Registry, p output.Palette) {
 	if len(reg.JDKs) == 0 {
-		fmt.Println("no JDKs registered")
+		fmt.Println(p.Dim("no JDKs registered"))
 		return
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
@@ -67,6 +71,8 @@ func printList(reg *jdk.Registry) {
 		tag := strings.Join(tags, ",")
 		if tag == "" {
 			tag = "-"
+		} else {
+			tag = p.Yellow(tag)
 		}
 		fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\n", e.Name, e.Major, e.Version, filepath.ToSlash(e.Path), tag)
 	}

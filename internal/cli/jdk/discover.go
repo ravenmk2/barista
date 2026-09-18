@@ -11,7 +11,6 @@ import (
 	"barista/internal/jdk"
 	"barista/internal/output"
 	"barista/internal/runner"
-	"barista/internal/workspace"
 )
 
 type discoverOutcome struct {
@@ -27,6 +26,10 @@ func discoverCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			*exitCode = 0
+			cfg, p, ok := userSettings(cmd)
+			if !ok {
+				return nil
+			}
 			reg, regPath, ok := loadRegistry(cmd)
 			if !ok {
 				return nil
@@ -41,10 +44,8 @@ func discoverCmd() *cobra.Command {
 				return nil
 			}
 			parallel, _ := cmd.Flags().GetInt("parallel")
-			if !cmd.Flags().Changed("parallel") {
-				if cfg, err := workspace.LoadUserConfig(); err == nil && cfg.Parallel > 0 {
-					parallel = cfg.Parallel
-				}
+			if !cmd.Flags().Changed("parallel") && cfg.Parallel > 0 {
+				parallel = cfg.Parallel
 			}
 			tasks := make([]runner.Task[discoverOutcome], len(cands))
 			for i, c := range cands {
@@ -60,7 +61,7 @@ func discoverCmd() *cobra.Command {
 			outcomes := runner.Run(cmd.Context(), tasks, parallel, nil)
 
 			results := make([]output.Result, 0, len(outcomes))
-			registered, skipped := 0, 0
+			registered, skipped, failed := 0, 0, 0
 			for _, o := range outcomes {
 				res := output.Result{
 					Name:   filepath.ToSlash(o.cand.Path),
@@ -83,6 +84,7 @@ func discoverCmd() *cobra.Command {
 					if e := reg.Add(jdk.Entry{Name: name, Major: o.info.Major, Version: o.info.Version, Path: o.info.Home}); e != nil {
 						res.Status = output.StatusFailed
 						res.Error = e
+						failed++
 						break
 					}
 					registered++
@@ -105,14 +107,33 @@ func discoverCmd() *cobra.Command {
 				for _, res := range results {
 					switch {
 					case res.Status == output.StatusOK:
-						fmt.Printf("registered %s (%s %v) at %s [%v]\n", res.Name, res.Detail["distro"], res.Detail["version"], res.Path, res.Detail["source"])
+						fmt.Printf("%s %s (%s %v) at %s [%v]\n", p.Green("registered"), p.Cyan(res.Name), res.Detail["distro"], res.Detail["version"], res.Path, res.Detail["source"])
+					case res.Status == output.StatusFailed:
+						fmt.Println(p.Red(fmt.Sprintf("%-10s %s (%s)", res.Status, res.Name, res.Error.Message)))
 					case res.Error != nil:
-						fmt.Printf("%-10s %s (%s)\n", res.Status, res.Name, res.Error.Message)
+						fmt.Println(p.Dim(fmt.Sprintf("%-10s %s (%s)", res.Status, res.Name, res.Error.Message)))
 					default:
-						fmt.Printf("%-10s %s (already registered as %q)\n", res.Status, res.Name, res.Detail["as"])
+						fmt.Println(p.Dim(fmt.Sprintf("%-10s %s (already registered as %q)", res.Status, res.Name, res.Detail["as"])))
 					}
 				}
-				fmt.Printf("%d candidates: %d registered, %d skipped\n", len(results), registered, skipped)
+				seg := func(v int, label string, style func(string) string) string {
+					t := fmt.Sprintf("%d %s", v, label)
+					if v > 0 {
+						return style(t)
+					}
+					return p.Dim(t)
+				}
+				var line string
+				if len(results) > 0 && registered == len(results) {
+					line = p.Green(fmt.Sprintf("%d candidates: %d registered", len(results), registered)) +
+						p.Dim(fmt.Sprintf(", %d skipped, %d failed", skipped, failed))
+				} else {
+					line = fmt.Sprintf("%d candidates: ", len(results)) +
+						seg(registered, "registered", p.Green) + ", " +
+						seg(skipped, "skipped", p.Yellow) + ", " +
+						seg(failed, "failed", p.Red)
+				}
+				fmt.Println(line)
 			}
 			finish(cmd, results)
 			return nil

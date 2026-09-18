@@ -37,6 +37,10 @@ func setDefaultCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
+			_, p, ok := userSettings(cmd)
+			if !ok {
+				return nil
+			}
 			major, _ := majorArg(args[0])
 			name := args[1]
 			reg, regPath, ok := loadRegistry(cmd)
@@ -45,7 +49,7 @@ func setDefaultCmd() *cobra.Command {
 			}
 			entry, e := reg.SetDefault(major, name)
 			if e != nil {
-				failResult(cmd, output.Result{Name: name, Action: "set-default", Status: output.StatusFailed, Error: e})
+				failResult(cmd, p, output.Result{Name: name, Action: "set-default", Status: output.StatusFailed, Error: e})
 				return nil
 			}
 			if !saveRegistry(cmd, reg, regPath) {
@@ -59,7 +63,7 @@ func setDefaultCmd() *cobra.Command {
 				Detail: map[string]any{"major": major},
 			}
 			if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
-				fmt.Printf("default for %d set to %s\n", major, name)
+				fmt.Printf("default for %d set to %s\n", major, p.Cyan(name))
 			}
 			finish(cmd, []output.Result{res})
 			return nil

@@ -18,6 +18,10 @@ func removeCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
+			_, p, ok := userSettings(cmd)
+			if !ok {
+				return nil
+			}
 			name := args[0]
 			reg, regPath, ok := loadRegistry(cmd)
 			if !ok {
@@ -25,7 +29,7 @@ func removeCmd() *cobra.Command {
 			}
 			entry, cleared, e := reg.Remove(name)
 			if e != nil {
-				failResult(cmd, output.Result{Name: name, Action: "remove", Status: output.StatusFailed, Error: e})
+				failResult(cmd, p, output.Result{Name: name, Action: "remove", Status: output.StatusFailed, Error: e})
 				return nil
 			}
 			if !saveRegistry(cmd, reg, regPath) {
@@ -41,7 +45,7 @@ func removeCmd() *cobra.Command {
 				res.Detail = map[string]any{"clearedDefaults": cleared}
 			}
 			if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
-				line := "removed " + name
+				line := "removed " + p.Cyan(name)
 				if len(cleared) > 0 {
 					majors := make([]string, len(cleared))
 					for i, m := range cleared {

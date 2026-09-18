@@ -9,18 +9,18 @@ import (
 type TextRenderer struct {
 	w       io.Writer
 	command string
-	p       palette
+	p       Palette
 }
 
 func NewTextRenderer(w io.Writer, command string, color bool) *TextRenderer {
-	return &TextRenderer{w: w, command: command, p: newPalette(color)}
+	return &TextRenderer{w: w, command: command, p: NewPalette(color)}
 }
 
 func (r *TextRenderer) OnResult(_ int, res Result) {
 	status := fmt.Sprintf("%-8s", res.Status)
 	name := fmt.Sprintf("%-20s", res.Name)
 	if res.Status != StatusOK {
-		line := status + " " + name + " " + describe(palette{}, res)
+		line := status + " " + name + " " + describe(Palette{}, res)
 		if res.Status == StatusSkipped {
 			fmt.Fprintln(r.w, r.p.Dim(line))
 		} else {

@@ -1,6 +1,7 @@
 package jdkcli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"barista/internal/jdk"
 	"barista/internal/output"
+	"barista/internal/workspace"
 )
 
 var exitCode *int
@@ -60,6 +62,20 @@ func loadRegistry(cmd *cobra.Command) (*jdk.Registry, string, bool) {
 	return reg, p, true
 }
 
+func userSettings(cmd *cobra.Command) (workspace.ConfigFile, output.Palette, bool) {
+	cfg, err := workspace.LoadUserConfig()
+	if err != nil {
+		e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
+		var le *workspace.LoadError
+		if errors.As(err, &le) {
+			e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
+		}
+		fail(cmd, e)
+		return workspace.ConfigFile{}, output.NewPalette(false), false
+	}
+	return cfg, output.NewPalette(output.ColorEnabled(cfg.Color)), true
+}
+
 func saveRegistry(cmd *cobra.Command, reg *jdk.Registry, path string) bool {
 	if e := reg.Save(path); e != nil {
 		fail(cmd, e)
@@ -75,11 +91,11 @@ func finish(cmd *cobra.Command, results []output.Result) {
 	*exitCode = output.ExitCode(results)
 }
 
-func failResult(cmd *cobra.Command, res output.Result) {
+func failResult(cmd *cobra.Command, p output.Palette, res output.Result) {
 	if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
-		fmt.Fprintf(os.Stdout, "failed %s: %s: %s\n", res.Name, res.Error.Code, res.Error.Message)
+		fmt.Fprintln(os.Stdout, p.Red(fmt.Sprintf("failed %s: %s: %s", res.Name, res.Error.Code, res.Error.Message)))
 		if res.Error.Hint != "" {
-			fmt.Fprintf(os.Stdout, "hint: %s\n", res.Error.Hint)
+			fmt.Fprintln(os.Stdout, p.Dim("hint: "+res.Error.Hint))
 		}
 	}
 	finish(cmd, []output.Result{res})
