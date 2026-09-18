@@ -47,3 +47,11 @@ func ColorEnabled(mode string) bool {
 func StdoutIsTerminal() bool {
 	return stdoutIsTerminal(os.Stdout)
 }
+
+func StderrIsTerminal() bool {
+	return stdoutIsTerminal(os.Stderr)
+}
+
+func StdinIsTerminal() bool {
+	return stdoutIsTerminal(os.Stdin)
+}

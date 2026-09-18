@@ -25,6 +25,13 @@ const (
 	CodeNotAJDK                 = "NOT_A_JDK"
 	CodeJDKProbeFailed          = "JDK_PROBE_FAILED"
 	CodeJDKMajorMismatch        = "JDK_MAJOR_MISMATCH"
+	CodeJDKUnsupportedDistro    = "JDK_UNSUPPORTED_DISTRO"
+	CodeJDKUnsupportedPlatform  = "JDK_UNSUPPORTED_PLATFORM"
+	CodeJDKDownloadFailed       = "JDK_DOWNLOAD_FAILED"
+	CodeJDKInstallFailed        = "JDK_INSTALL_FAILED"
+	CodeJDKNotManaged           = "JDK_NOT_MANAGED"
+	CodeJDKUninstallFailed      = "JDK_UNINSTALL_FAILED"
+	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )
 
 type ErrInfo struct {

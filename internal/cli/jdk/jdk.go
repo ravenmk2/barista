@@ -29,6 +29,8 @@ func NewCmd(exit *int) *cobra.Command {
 		whichCmd(),
 		pathCmd(),
 		discoverCmd(),
+		installCmd(),
+		uninstallCmd(),
 	)
 	return cmd
 }
