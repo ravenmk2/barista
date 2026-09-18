@@ -34,7 +34,7 @@ func parseStatus(ctx context.Context, dir string) (RepoStatus, error) {
 		case strings.HasPrefix(line, "# branch.upstream "):
 			s.HasUpstream = true
 		case strings.HasPrefix(line, "# branch.ab "):
-			fmt.Sscanf(strings.TrimPrefix(line, "# branch.ab "), "+%d -%d", &s.Ahead, &s.Behind)
+			_, _ = fmt.Sscanf(strings.TrimPrefix(line, "# branch.ab "), "+%d -%d", &s.Ahead, &s.Behind)
 		case strings.HasPrefix(line, "? "):
 			s.Untracked++
 		case len(line) >= 4 && (line[0] == '1' || line[0] == '2' || line[0] == 'u') && line[1] == ' ':

@@ -29,9 +29,9 @@ func schemaCmd() *cobra.Command {
 }
 
 func printSchemaList(w io.Writer) {
-	fmt.Fprintln(w, "Available schemas:")
+	_, _ = fmt.Fprintln(w, "Available schemas:")
 	for _, e := range schemas.List() {
-		fmt.Fprintf(w, "  %-10s %s\n", e.Name, e.Description)
+		_, _ = fmt.Fprintf(w, "  %-10s %s\n", e.Name, e.Description)
 	}
 }
 

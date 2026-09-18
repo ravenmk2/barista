@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"barista/internal/workspace"
 )
 
 func runSchema(t *testing.T, args ...string) (stdout, stderr string, code int) {
@@ -25,8 +27,8 @@ func runSchema(t *testing.T, args ...string) (stdout, stderr string, code int) {
 	cmd.SetArgs(args)
 	_ = cmd.Execute()
 
-	wOut.Close()
-	wErr.Close()
+	_ = wOut.Close()
+	_ = wErr.Close()
 	out, _ := io.ReadAll(rOut)
 	errOut, _ := io.ReadAll(rErr)
 	return string(out), string(errOut), ExitCode
@@ -264,8 +266,22 @@ func TestSchemaValidateExplicitFile(t *testing.T) {
 	}
 }
 
+func chdirNoWorkspace(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	if _, err := workspace.FindRoot(dir); err == nil {
+		alt, err := os.MkdirTemp(filepath.VolumeName(dir)+string(filepath.Separator), "barista-test-*")
+		if err != nil {
+			t.Skipf("no .barista-free temp dir available: %v", err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(alt) })
+		dir = alt
+	}
+	t.Chdir(dir)
+}
+
 func TestSchemaValidateNoWorkspace(t *testing.T) {
-	t.Chdir(t.TempDir())
+	chdirNoWorkspace(t)
 	_, stderr, code := runSchema(t, "validate", "repos")
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)

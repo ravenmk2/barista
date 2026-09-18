@@ -15,7 +15,8 @@ barista：面向多仓库工作区的开发环境管理 CLI（Java 生态优先�
 
 | 命令                             | 要求                                                    |
 | -------------------------------- | ------------------------------------------------------- |
-| `go build ./... && go vet ./...` | 必须通过，gofmt 干净                                    |
+| `go build ./... && go vet ./...` | 必须通过                                                |
+| `golangci-lint run ./...`        | 0 issues（配置 [.golangci.yml](.golangci.yml)，v2.13.x） |
 | `go test ./...`                  | 全绿；纯逻辑配单元测试（stdlib `testing`，同包）        |
 | `./build.sh`                     | 交叉编译六平台到 dist/，`--install` 装到 `~/.local/bin` |
 

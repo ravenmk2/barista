@@ -118,7 +118,7 @@ func TestDownloadRetryResume(t *testing.T) {
 			t.Error("second request should carry a Range header")
 		}
 		var from int
-		fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-", &from)
+		_, _ = fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-", &from)
 		w.Header().Set("Content-Length", strconv.Itoa(len(full)-from))
 		w.WriteHeader(http.StatusPartialContent)
 		_, _ = w.Write([]byte(full[from:]))

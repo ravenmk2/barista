@@ -94,8 +94,8 @@ func installCmd() *cobra.Command {
 				return nil
 			}
 			tmpPath := tmp.Name()
-			tmp.Close()
-			defer os.Remove(tmpPath)
+			_ = tmp.Close()
+			defer func() { _ = os.Remove(tmpPath) }()
 			showProgress := !jsonOut && output.StderrIsTerminal()
 			start := time.Now()
 			err = jdk.Download(cmd.Context(), url, tmpPath, &jdk.DownloadOptions{
@@ -131,12 +131,12 @@ func installCmd() *cobra.Command {
 				return nil
 			}
 			if err := jdk.Extract(tmpPath, tmpDest); err != nil {
-				os.RemoveAll(tmpDest)
+				_ = os.RemoveAll(tmpDest)
 				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
 				return nil
 			}
 			if err := os.Rename(tmpDest, destDir); err != nil {
-				os.RemoveAll(tmpDest)
+				_ = os.RemoveAll(tmpDest)
 				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
 				return nil
 			}
@@ -148,12 +148,12 @@ func installCmd() *cobra.Command {
 				}
 			}
 			if e != nil {
-				os.RemoveAll(destDir)
+				_ = os.RemoveAll(destDir)
 				failRes(e)
 				return nil
 			}
 			if e := reg.Add(jdk.Entry{Name: name, Major: info.Major, Version: info.Version, Path: info.Home, Managed: true}); e != nil {
-				os.RemoveAll(destDir)
+				_ = os.RemoveAll(destDir)
 				failRes(e)
 				return nil
 			}

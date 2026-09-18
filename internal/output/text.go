@@ -22,16 +22,16 @@ func (r *TextRenderer) OnResult(_ int, res Result) {
 	if res.Status != StatusOK {
 		line := status + " " + name + " " + describe(Palette{}, res)
 		if res.Status == StatusSkipped {
-			fmt.Fprintln(r.w, r.p.Dim(line))
+			_, _ = fmt.Fprintln(r.w, r.p.Dim(line))
 		} else {
-			fmt.Fprintln(r.w, r.p.Red(line))
+			_, _ = fmt.Fprintln(r.w, r.p.Red(line))
 		}
 		return
 	}
 	if r.attention(res) {
 		name = r.p.YellowBold(name)
 	}
-	fmt.Fprintf(r.w, "%s %s %s\n", r.p.Green(status), name, describe(r.p, res))
+	_, _ = fmt.Fprintf(r.w, "%s %s %s\n", r.p.Green(status), name, describe(r.p, res))
 }
 
 func (r *TextRenderer) attention(res Result) bool {
@@ -58,7 +58,7 @@ func (r *TextRenderer) Finish(results []Result) {
 			seg(s.Skipped, "skipped", p.Yellow) + ", " +
 			seg(s.Failed, "failed", p.Red)
 	}
-	fmt.Fprintln(r.w, "\n"+line)
+	_, _ = fmt.Fprintln(r.w, "\n"+line)
 	switch r.command {
 	case "git status":
 		r.trailer("Repositories with changes: ", selectNames(results, func(res Result) bool { return res.Changed() }))
@@ -87,7 +87,7 @@ func (r *TextRenderer) trailer(title string, names []string) {
 	for i, n := range names {
 		styled[i] = r.p.YellowBold(n)
 	}
-	fmt.Fprintln(r.w, title+strings.Join(styled, ", "))
+	_, _ = fmt.Fprintln(r.w, title+strings.Join(styled, ", "))
 }
 
 func describe(p styler, res Result) string {

@@ -175,7 +175,7 @@ func downloadOnce(ctx context.Context, url, dest string, onProgress func(receive
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var f *os.File
 	total := resp.ContentLength
 	switch {
@@ -186,7 +186,7 @@ func downloadOnce(ctx context.Context, url, dest string, onProgress func(receive
 		total += resumed
 		f, err = os.OpenFile(dest, os.O_WRONLY|os.O_APPEND, 0o644)
 	case resp.StatusCode == http.StatusRequestedRangeNotSatisfiable && resumed > 0:
-		os.Remove(dest)
+		_ = os.Remove(dest)
 		return fmt.Errorf("server rejected the resume range, restarting from scratch")
 	case resp.StatusCode >= 400 && resp.StatusCode < 500:
 		return &permanentError{msg: fmt.Sprintf("unexpected HTTP %s", resp.Status)}
@@ -198,7 +198,7 @@ func downloadOnce(ctx context.Context, url, dest string, onProgress func(receive
 	}
 	pw := &progressWriter{w: f, received: resumed, total: total, on: onProgress}
 	if _, err := io.Copy(pw, resp.Body); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	return f.Close()
@@ -211,10 +211,10 @@ func Extract(archivePath, destDir string) error {
 	}
 	var magic [2]byte
 	if _, err := io.ReadFull(f, magic[:]); err != nil {
-		f.Close()
+		_ = f.Close()
 		return fmt.Errorf("cannot read archive: %v", err)
 	}
-	f.Close()
+	_ = f.Close()
 	switch {
 	case magic[0] == 0x1f && magic[1] == 0x8b:
 		return extractTarGz(archivePath, destDir)
@@ -249,7 +249,7 @@ func writeFile(target string, r io.Reader, perm os.FileMode) error {
 		return err
 	}
 	if _, err := io.Copy(w, r); err != nil {
-		w.Close()
+		_ = w.Close()
 		return err
 	}
 	return w.Close()
@@ -260,7 +260,7 @@ func extractZip(archivePath, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, e := range r.File {
 		rel, err := stripFirst(e.Name)
 		if err != nil {
@@ -284,7 +284,7 @@ func extractZip(archivePath, destDir string) error {
 			return err
 		}
 		err = writeFile(target, rc, e.Mode().Perm())
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			return err
 		}
@@ -297,12 +297,12 @@ func extractTarGz(archivePath, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
