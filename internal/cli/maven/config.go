@@ -1,6 +1,7 @@
 package mavencli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"barista/internal/maven"
 	"barista/internal/output"
+	"barista/internal/workspace"
 )
 
 func configCmd() *cobra.Command {
@@ -34,6 +36,48 @@ func configCmd() *cobra.Command {
 			eff := effective(reg, wsCfg)
 			detail := map[string]any{}
 
+			jdkSpec, jdkSrc := eff.Jdk, eff.JdkSource
+			if wsRoot := findWorkspaceRoot(); wsRoot != "" {
+				cwd, err := os.Getwd()
+				if err != nil {
+					fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+					return nil
+				}
+				ws, err := workspace.Load(cwd)
+				if err != nil {
+					e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
+					var le *workspace.LoadError
+					if errors.As(err, &le) {
+						e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
+					}
+					fail(cmd, e)
+					return nil
+				}
+				if repo := ws.MatchRepo(cwd); repo != nil {
+					detail["repo"] = map[string]any{"name": repo.Name, "path": filepath.ToSlash(repo.Path)}
+					if v, ok := repo.Property("maven.jdk"); ok && v != "" {
+						jdkSpec, jdkSrc = v, "repo"
+					}
+				} else {
+					detail["repo"] = map[string]any{"name": "", "source": "none"}
+				}
+				s := filepath.Join(wsRoot, ".barista", "maven", "settings.xml")
+				if _, err := os.Stat(s); err == nil {
+					detail["settings"] = map[string]any{"value": filepath.ToSlash(s), "source": "workspace"}
+				} else {
+					detail["settings"] = map[string]any{"value": "", "source": "ambient"}
+				}
+				if v, ok := wsCfg.Property("maven.repo.local"); ok && v != "" {
+					v = workspace.ExpandHome(v)
+					if !filepath.IsAbs(v) {
+						v = filepath.Join(wsRoot, v)
+					}
+					detail["repoLocal"] = map[string]any{"value": filepath.ToSlash(v), "source": "workspace"}
+				} else {
+					detail["repoLocal"] = map[string]any{"value": "", "source": "none"}
+				}
+			}
+
 			if eff.Default == "" {
 				detail["default"] = map[string]any{"value": "", "source": "none"}
 			} else {
@@ -49,11 +93,11 @@ func configCmd() *cobra.Command {
 				detail["default"] = d
 			}
 
-			if eff.Jdk == "" {
+			if jdkSpec == "" {
 				detail["jdk"] = map[string]any{"value": "", "source": "ambient"}
 			} else {
-				j := map[string]any{"value": eff.Jdk, "source": eff.JdkSource}
-				entry, e := resolveJdkSpec(cmd, eff.Jdk)
+				j := map[string]any{"value": jdkSpec, "source": jdkSrc}
+				entry, e := resolveJdkSpec(cmd, jdkSpec)
 				if e != nil {
 					j["error"] = map[string]any{"code": e.Code, "message": e.Message}
 				} else {
@@ -116,6 +160,35 @@ func printConfig(detail map[string]any, p output.Palette) {
 	jdkValue += errorSuffix(jdkD, p)
 	_, _ = fmt.Fprintf(w, "jdk\t%s\t%s\n", jdkValue, sourceLabel(jdkD, "maven.json"))
 
+	if rd, ok := detail["repo"].(map[string]any); ok {
+		name, _ := rd["name"].(string)
+		src := "-"
+		if name != "" {
+			name = fmt.Sprintf("%s (%v)", p.Cyan(name), rd["path"])
+			src = "repos.json"
+		} else {
+			name = p.Dim("(no repo matches cwd)")
+		}
+		_, _ = fmt.Fprintf(w, "repo\t%s\t%s\n", name, src)
+	}
+	if sd, ok := detail["settings"].(map[string]any); ok {
+		v, _ := sd["value"].(string)
+		src := "-"
+		if v != "" {
+			src = "workspace (.barista/maven/settings.xml)"
+		} else {
+			v = p.Dim("(none, Maven default applies)")
+		}
+		_, _ = fmt.Fprintf(w, "settings\t%s\t%s\n", v, src)
+	}
+	if ld, ok := detail["repoLocal"].(map[string]any); ok {
+		v, _ := ld["value"].(string)
+		if v == "" {
+			v = p.Dim("(none)")
+		}
+		_, _ = fmt.Fprintf(w, "repo.local\t%s\t%s\n", v, sourceLabel(ld, "config.json"))
+	}
+
 	inst := detail["installDir"].(map[string]any)
 	_, _ = fmt.Fprintf(w, "installDir\t%v\t%s\n", inst["value"], sourceLabel(inst, "config.json"))
 	_ = w.Flush()
@@ -134,6 +207,8 @@ func sourceLabel(d map[string]any, userFile string) string {
 		return "user (~/.barista/" + userFile + ")"
 	case "workspace":
 		return "workspace (.barista/config.json)"
+	case "repo":
+		return "repo (repos.json properties)"
 	case "builtin":
 		return "builtin"
 	default:

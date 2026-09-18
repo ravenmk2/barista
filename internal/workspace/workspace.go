@@ -10,13 +10,22 @@ import (
 )
 
 type Repo struct {
-	Name          string   `json:"name"`
-	URL           string   `json:"url"`
-	Path          string   `json:"path"`
-	DefaultBranch string   `json:"defaultBranch,omitempty"`
-	Labels        []string `json:"labels,omitempty"`
+	Name          string            `json:"name"`
+	URL           string            `json:"url"`
+	Path          string            `json:"path"`
+	DefaultBranch string            `json:"defaultBranch,omitempty"`
+	Labels        []string          `json:"labels,omitempty"`
+	Properties    map[string]string `json:"properties,omitempty"`
 
 	ResolvedURL string `json:"-"`
+}
+
+func (r *Repo) Property(key string) (string, bool) {
+	if r.Properties == nil {
+		return "", false
+	}
+	v, ok := r.Properties[key]
+	return v, ok
 }
 
 type ReposFile struct {
@@ -87,6 +96,34 @@ func Load(start string) (*Workspace, error) {
 
 func FindRoot(start string) (string, error) {
 	return findRoot(start)
+}
+
+func FindWorkspaceRoot(start string) string {
+	root, err := findRoot(start)
+	if err != nil {
+		return ""
+	}
+	if home, herr := os.UserHomeDir(); herr == nil && root == filepath.Clean(home) {
+		return ""
+	}
+	return root
+}
+
+func (w *Workspace) MatchRepo(dir string) *Repo {
+	var best *Repo
+	bestLen := -1
+	for i := range w.Repos.Repos {
+		abs := w.AbsPath(w.Repos.Repos[i])
+		rel, err := filepath.Rel(abs, dir)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		if len(abs) > bestLen {
+			best = &w.Repos.Repos[i]
+			bestLen = len(abs)
+		}
+	}
+	return best
 }
 
 func findRoot(start string) (string, error) {

@@ -144,14 +144,7 @@ func findWorkspaceRoot() string {
 	if err != nil {
 		return ""
 	}
-	root, err := workspace.FindRoot(cwd)
-	if err != nil {
-		return ""
-	}
-	if home, herr := os.UserHomeDir(); herr == nil && root == filepath.Clean(home) {
-		return ""
-	}
-	return root
+	return workspace.FindWorkspaceRoot(cwd)
 }
 
 func addScopeFlag(cmd *cobra.Command) {

@@ -61,6 +61,11 @@
             "items": { "type": "string" },
             "uniqueItems": true,
             "description": "Labels for --label filtering"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Per-repo overrides, dotted domain-prefixed keys (e.g. \"maven.jdk\": JDK spec used by barista mvn inside this repo); unknown keys are ignored",
+            "additionalProperties": { "type": "string" }
           }
         }
       }

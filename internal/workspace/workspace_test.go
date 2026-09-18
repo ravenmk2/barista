@@ -102,3 +102,57 @@ func TestMergeConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestMatchRepo(t *testing.T) {
+	root := t.TempDir()
+	ws := &Workspace{Root: root, Repos: &ReposFile{Repos: []Repo{
+		{Name: "app", Path: "repos/app"},
+		{Name: "app2", Path: "repos/app2"},
+		{Name: "nested", Path: "repos/app/modules/nested"},
+	}}}
+
+	cases := []struct {
+		name string
+		dir  string
+		want string
+	}{
+		{"inside repo", filepath.Join(root, "repos", "app", "src"), "app"},
+		{"repo root itself", filepath.Join(root, "repos", "app2"), "app2"},
+		{"nested repo wins", filepath.Join(root, "repos", "app", "modules", "nested", "src"), "nested"},
+		{"common-prefix sibling is not a match", filepath.Join(root, "repos", "app2x"), ""},
+		{"workspace root matches nothing", root, ""},
+		{"outside workspace", filepath.Dir(root), ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ws.MatchRepo(c.dir)
+			if c.want == "" {
+				if got != nil {
+					t.Errorf("want nil, got %q", got.Name)
+				}
+				return
+			}
+			if got == nil || got.Name != c.want {
+				t.Errorf("want %q, got %+v", c.want, got)
+			}
+		})
+	}
+}
+
+func TestFindWorkspaceRootHomeGuard(t *testing.T) {
+	home := setUserHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := FindWorkspaceRoot(home); got != "" {
+		t.Errorf("home dir must not be treated as workspace, got %q", got)
+	}
+
+	ws := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(ws, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := FindWorkspaceRoot(filepath.Join(ws, "sub", "dir")); got != ws {
+		t.Errorf("want %q, got %q", ws, got)
+	}
+}
