@@ -16,6 +16,7 @@ type planInput struct {
 	cwd         string
 	goos        string
 	jdkFlag     string
+	startupFlag string
 	passthrough []string
 	wsRoot      string
 	repos       []workspace.Repo
@@ -44,6 +45,10 @@ type execPlan struct {
 	repoLocal        string
 	passthrough      []string
 	args             []string
+	startup          string
+	startupSrc       string
+	basedir          string
+	launch           launchSpec
 }
 
 func planExec(in planInput) (*execPlan, *output.ErrInfo) {
@@ -107,6 +112,22 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 	}
 
 	p.args = buildArgs(p)
+
+	startup, startupSrc, e := resolveStartup(in, repo)
+	if e != nil {
+		return nil, e
+	}
+	p.startup, p.startupSrc = startup, startupSrc
+	if startup == "jar" {
+		ls, basedir, e := jarLaunch(in, p)
+		if e != nil {
+			return nil, e
+		}
+		p.launch = ls
+		p.basedir = basedir
+	} else {
+		p.launch = scriptLaunch(p)
+	}
 	return p, nil
 }
 
