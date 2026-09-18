@@ -70,7 +70,25 @@ func Probe(path string) (Info, *output.ErrInfo) {
 			Message: fmt.Sprintf("%s: cannot parse java version %q", filepath.ToSlash(home), version),
 		}
 	}
-	return Info{Home: home, Version: version, Major: major, Distro: detectDistro(text)}, nil
+	return Info{Home: home, Version: version, Major: major, Distro: detectDistro(distroEvidence(text))}, nil
+}
+
+func distroEvidence(text string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			if k, _, ok := strings.Cut(trimmed, " = "); ok {
+				switch k {
+				case "java.vendor", "java.vm.vendor", "java.vm.name":
+					b.WriteString(trimmed + "\n")
+				}
+			}
+			continue
+		}
+		b.WriteString(line + "\n")
+	}
+	return b.String()
 }
 
 func resolveHome(path string) (string, bool) {
@@ -150,7 +168,7 @@ func detectDistro(text string) string {
 		return "liberica"
 	case strings.Contains(l, "sapmachine"):
 		return "sapmachine"
-	case strings.Contains(l, "oracle"), strings.Contains(l, "java(tm)"), strings.Contains(l, "hotspot(tm)"):
+	case strings.Contains(l, "java(tm)"), strings.Contains(l, "hotspot(tm)"):
 		return "oracle"
 	case strings.Contains(l, "openjdk"):
 		return "openjdk"

@@ -3,6 +3,7 @@ package jdk
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -85,5 +86,29 @@ func TestResolveHome(t *testing.T) {
 	}
 	if got, ok := resolveHome(mac); !ok || got != home {
 		t.Errorf("resolveHome(.jdk dir) = %q, %v; want %q", got, ok, home)
+	}
+}
+
+func TestDistroEvidenceFiltersPropertyNoise(t *testing.T) {
+	showSettings := `Property settings:
+    java.home = D:\Programs\Java\jdk-17.0.2
+    java.library.path = C:\Users\Raven\AppData\Local\Microsoft\WindowsApps
+        C:\Users\Raven\AppData\Local\Programs\Microsoft VS Code\bin
+    java.vendor = Oracle Corporation
+    java.version = 17.0.2
+    java.vm.name = OpenJDK 64-Bit Server VM
+    java.vm.vendor = Oracle Corporation
+
+openjdk version "17.0.2" 2022-01-18
+OpenJDK Runtime Environment (build 17.0.2+8-86)
+OpenJDK 64-Bit Server VM (build 17.0.2+8-86, mixed mode, sharing)
+`
+	if got := detectDistro(distroEvidence(showSettings)); got != "openjdk" {
+		t.Errorf("jdk.java.net build with polluted java.library.path = %q, want openjdk", got)
+	}
+
+	temurin := strings.ReplaceAll(showSettings, "Oracle Corporation", "Eclipse Adoptium")
+	if got := detectDistro(distroEvidence(temurin)); got != "temurin" {
+		t.Errorf("adoptium vendor = %q, want temurin", got)
 	}
 }
