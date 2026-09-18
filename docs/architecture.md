@@ -25,7 +25,7 @@ cmd/barista            入口，只做 fang.Execute
 internal/cli/       命令层：解析参数、组装 []Task；不碰业务逻辑
 internal/workspace/ 工作区发现（向上找 .barista/）、repos.json / 两级 config.json 加载校验
 internal/gitrun/    git 域：exec 封装、单仓库操作、默认分支解析
-internal/jdk/       JDK 域：registry 读写（原子写）、probe（java -version / -XshowSettings 解析）、版本解析比较
+internal/jdk/       JDK 域：registry 读写（原子写）、probe（java -version / -XshowSettings 解析）、版本解析比较、discover 候选收集（JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 反推）
 internal/runner/    通用并发 worker pool（泛型，不绑定 git 语义）
 internal/output/    Result 类型 + text / json / tui 三种 renderer
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
@@ -33,7 +33,7 @@ schemas/            JSON Schema 单一数据源（包即数据目录，同目录
 
 核心契约：**cli 产出 `[]Task` → runner 产出 `[]Result` → renderer 只消费 Result**。renderer 不得触碰 git 逻辑。新增功能域（jdk、tool）时各自实现 Task，runner 和 output 不得为此修改。
 
-jdk 命令组的特殊性：registry 是 user 级文件，命令不依赖工作区，故 cli/jdk 自带执行骨架（不调用 workspace.Load）；output 的 TextRenderer 绑定 git 语义（"repos" 汇总行、git 动作描述），jdk 域文本输出在 cli/jdk 内用纯文本（tabwriter），JSON 仍走 output.Envelope。
+jdk 命令组的特殊性：registry 是 user 级文件，命令不依赖工作区，故 cli/jdk 自带执行骨架（不调用 workspace.Load）；output 的 TextRenderer 绑定 git 语义（"repos" 汇总行、git 动作描述），jdk 域文本输出在 cli/jdk 内用纯文本（tabwriter），JSON 仍走 output.Envelope。discover 是 jdk 域唯一走 runner 并发的命令（每个候选路径一个 Task，probe 起子进程）；注册在主线程串行进行，命名按 `<distro><major>` 冲突追加 `-1`/`-2`。discover 幂等可重复：已注册路径（SamePath 比较）报 skipped，原因放 `Detail.reason`（不带 Error，重复跑不产生错误）；probe 失败的候选同样 skipped 但保留 Error 诊断。
 
 ## 输出契约（面向 AI Agent 设计）
 

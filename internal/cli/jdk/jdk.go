@@ -26,6 +26,7 @@ func NewCmd(exit *int) *cobra.Command {
 		setDefaultCmd(),
 		whichCmd(),
 		pathCmd(),
+		discoverCmd(),
 	)
 	return cmd
 }
