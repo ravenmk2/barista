@@ -76,7 +76,7 @@ func DefaultInstallDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "barista", "jdks"), nil
+	return filepath.Join(home, ".barista", "toolchains", "jdk"), nil
 }
 
 func InstallDir(cfgValue string) (string, error) {

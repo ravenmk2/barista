@@ -301,7 +301,7 @@ func TestInstallDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InstallDir(default): %v", err)
 	}
-	if !strings.Contains(filepath.ToSlash(got), ".local/barista/jdks") {
+	if !strings.Contains(filepath.ToSlash(got), ".barista/toolchains/jdk") {
 		t.Errorf("default install dir = %q", got)
 	}
 }

@@ -36,7 +36,7 @@ func RegistryPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "barista", "jdk.json"), nil
+	return filepath.Join(home, ".barista", "jdk.json"), nil
 }
 
 func Load(path string) (*Registry, *output.ErrInfo) {

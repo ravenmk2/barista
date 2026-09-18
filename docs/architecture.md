@@ -10,7 +10,7 @@ internal/
   cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + jdk/ 命令组 + schema.go
   workspace/        工作区发现（向上找 .barista/）、repos.json 与两级 config.json 加载合并
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
-  jdk/              JDK 域：registry（~/.config/barista/jdk.json）读写、java 探测（version/distro）、版本比较
+  jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较
   runner/           通用并发 worker pool（泛型，不绑定 git 语义）
   output/           Result 类型 + text/json/tui renderer + 高亮（color.go）
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
@@ -48,9 +48,18 @@ jdk 命令组的特殊性：registry 是 user 级文件，命令不依赖工作�
 
 ## 配置分层
 
-- user level：`~/.config/barista/config.json`（全平台统一 XDG 形态，`os.UserHomeDir()` + `.config/barista/config.json`；不存在合法，语法错误报 CONFIG_ERROR）
-- user level：`~/.config/barista/jdk.json`——JDK registry（`jdks` 数组 + `defaults` major→name）；不存在视为空注册表；写盘为临时文件 + rename 原子替换
-- config.json `installDir`：`barista jdk install` 的安装根目录（默认 `~/.local/barista/jdks`），仅 user level 生效，不参与 workspace 合并
+user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.barista`，与 workspace 级 `.barista/` 对应）：
+
+```txt
+~/.barista/
+  config.json          用户配置（不存在合法，语法错误报 CONFIG_ERROR）
+  jdk.json             JDK registry（jdks 数组 + defaults major→name；不存在视为空注册表；临时文件 + rename 原子写）
+  toolchains/          barista 托管安装的工具链（仅 install 产物；add/discover 注册的可在任意路径）
+    jdk/<name>/        barista jdk install 安装根（JDK 域默认 installDir）
+    maven/             （路线图）
+```
+
+- config.json `installDir`：`barista jdk install` 的安装根目录（默认 `~/.barista/toolchains/jdk`），仅 user level 生效，不参与 workspace 合并
 - workspace level：`<workspace>/.barista/config.json`（与 user level 同 schema，覆盖 user level）
 - `<workspace>/.barista/repos.json`：仓库清单（事实）+ `config` map（git 操作行为默认值）
 - 优先级（低→高）：内置默认 → user level → workspace level → repos.json config → 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置

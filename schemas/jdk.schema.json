@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/jdk.schema.json",
   "title": "barista jdk.json",
-  "description": "JDK registry (user level ~/.config/barista/jdk.json); missing file means an empty registry",
+  "description": "JDK registry (user level ~/.barista/jdk.json); missing file means an empty registry",
   "type": "object",
   "additionalProperties": true,
   "properties": {

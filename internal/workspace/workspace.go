@@ -176,7 +176,7 @@ func UserConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "barista", "config.json"), nil
+	return filepath.Join(home, ".barista", "config.json"), nil
 }
 
 func LoadUserConfig() (ConfigFile, error) {

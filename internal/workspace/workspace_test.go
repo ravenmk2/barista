@@ -28,7 +28,7 @@ func TestLoadUserConfigMissing(t *testing.T) {
 
 func TestLoadUserConfig(t *testing.T) {
 	home := setUserHome(t)
-	dir := filepath.Join(home, ".config", "barista")
+	dir := filepath.Join(home, ".barista")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestLoadUserConfig(t *testing.T) {
 
 func TestLoadUserConfigSyntaxError(t *testing.T) {
 	home := setUserHome(t)
-	dir := filepath.Join(home, ".config", "barista")
+	dir := filepath.Join(home, ".barista")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +61,14 @@ func TestLoadUserConfigSyntaxError(t *testing.T) {
 	if !ok || le.Code != "CONFIG_ERROR" {
 		t.Fatalf("want CONFIG_ERROR, got %v", err)
 	}
-	if !strings.Contains(le.Message, ".config/barista/config.json") {
+	if !strings.Contains(le.Message, ".barista/config.json") {
 		t.Errorf("error should name the file, got: %s", le.Message)
 	}
 }
 
 func TestLoadUserConfigInvalidValue(t *testing.T) {
 	home := setUserHome(t)
-	dir := filepath.Join(home, ".config", "barista")
+	dir := filepath.Join(home, ".barista")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -39,19 +39,29 @@ barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
 
 ## 配置
 
-两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`）：
+两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`installDir`）：
 
 | 级别      | 路径                                          |
 | --------- | --------------------------------------------- |
-| user      | `~/.config/barista/config.json`                 |
+| user      | `~/.barista/config.json`                        |
 | workspace | `<workspace>/.barista/config.json`（覆盖 user） |
+
+user 级目录结构：
+
+```txt
+~/.barista/
+  config.json          用户配置
+  jdk.json             JDK registry（barista jdk 命令组维护）
+  toolchains/          barista 托管安装的工具链
+    jdk/<name>/        barista jdk install 的安装位置
+```
 
 ## Schema
 
 ```bash
 barista schema list                                # 列出内嵌 JSON Schema
-barista schema show repos|config                   # 输出 schema 原文
-barista schema validate repos|config [file]        # 校验（config 默认校验 user + workspace 两级）
+barista schema show repos|config|jdk               # 输出 schema 原文
+barista schema validate repos|config|jdk [file]    # 校验（config 默认校验 user + workspace 两级）
                       [--scope user|workspace]
 ```
 

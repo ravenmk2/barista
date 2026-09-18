@@ -29,12 +29,12 @@ var entries = map[string]Entry{
 	},
 	"config": {
 		Name:        "config",
-		Description: "barista settings (user level ~/.config/barista/config.json, workspace level <workspace>/.barista/config.json)",
+		Description: "barista settings (user level ~/.barista/config.json, workspace level <workspace>/.barista/config.json)",
 		Raw:         configSchema,
 	},
 	"jdk": {
 		Name:        "jdk",
-		Description: "JDK registry (user level ~/.config/barista/jdk.json)",
+		Description: "JDK registry (user level ~/.barista/jdk.json)",
 		Raw:         jdkSchema,
 	},
 }

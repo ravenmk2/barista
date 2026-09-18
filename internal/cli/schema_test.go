@@ -181,7 +181,7 @@ func TestSchemaValidateConfigMissing(t *testing.T) {
 
 func TestSchemaValidateConfigScopes(t *testing.T) {
 	home := setUserHome(t)
-	writeFile(t, filepath.Join(home, ".config", "barista", "config.json"), `{"parallel":20,"color":"never"}`)
+	writeFile(t, filepath.Join(home, ".barista", "config.json"), `{"parallel":20,"color":"never"}`)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".barista", "config.json"), `{"parallel":"ten"}`)
 	t.Chdir(dir)
@@ -207,7 +207,7 @@ func TestSchemaValidateConfigScopes(t *testing.T) {
 
 func TestSchemaValidateConfigScopeUser(t *testing.T) {
 	home := setUserHome(t)
-	writeFile(t, filepath.Join(home, ".config", "barista", "config.json"), `{"color":"never"}`)
+	writeFile(t, filepath.Join(home, ".barista", "config.json"), `{"color":"never"}`)
 	t.Chdir(t.TempDir())
 
 	stdout, _, code := runSchema(t, "validate", "config", "--scope", "user")
