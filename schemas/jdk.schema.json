@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/jdk.schema.json",
+  "title": "barista jdk.json",
+  "description": "JDK registry (user level ~/.config/barista/jdk.json); missing file means an empty registry",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "jdks": {
+      "type": "array",
+      "description": "Registered JDKs in declaration order",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "major", "version", "path"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "description": "Unique logical name (e.g. temurin8, openjdk11-1)"
+          },
+          "major": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Major version (1.8.0_321 -> 8, 17.0.7 -> 17)"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Full version string as reported by java -version"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute JDK home (the directory containing bin/java; on macOS the Contents/Home level)"
+          },
+          "managed": {
+            "type": "boolean",
+            "default": false,
+            "description": "True when installed by barista jdk install (under installDir); eligible for barista jdk uninstall"
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default JDK name per major version",
+      "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

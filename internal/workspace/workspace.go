@@ -36,8 +36,9 @@ func (f *ReposFile) ConfigBool(key string) (bool, bool) {
 }
 
 type ConfigFile struct {
-	Parallel int    `json:"parallel"`
-	Color    string `json:"color"`
+	Parallel   int    `json:"parallel"`
+	Color      string `json:"color"`
+	InstallDir string `json:"installDir"`
 }
 
 type Workspace struct {
@@ -206,7 +207,27 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 	if cf.Parallel < 0 {
 		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: parallel must be >= 0", source)}
 	}
+	if cf.InstallDir != "" {
+		cf.InstallDir = ExpandHome(cf.InstallDir)
+		if !filepath.IsAbs(cf.InstallDir) {
+			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: installDir must be an absolute path (~ allowed)", source)}
+		}
+	}
 	return cf, nil
+}
+
+func ExpandHome(p string) string {
+	if p != "~" && !strings.HasPrefix(p, "~/") && !strings.HasPrefix(p, `~\`) {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	if p == "~" {
+		return home
+	}
+	return filepath.Join(home, p[2:])
 }
 
 func MergeConfig(user, ws ConfigFile) ConfigFile {

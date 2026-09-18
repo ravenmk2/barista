@@ -12,6 +12,9 @@ var reposSchema []byte
 //go:embed config.schema.json
 var configSchema []byte
 
+//go:embed jdk.schema.json
+var jdkSchema []byte
+
 type Entry struct {
 	Name        string
 	Description string
@@ -28,6 +31,11 @@ var entries = map[string]Entry{
 		Name:        "config",
 		Description: "barista settings (user level ~/.config/barista/config.json, workspace level <workspace>/.barista/config.json)",
 		Raw:         configSchema,
+	},
+	"jdk": {
+		Name:        "jdk",
+		Description: "JDK registry (user level ~/.config/barista/jdk.json)",
+		Raw:         jdkSchema,
 	},
 }
 

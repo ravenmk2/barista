@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/jdk"
 	"barista/internal/workspace"
 	"barista/schemas"
 )
@@ -132,13 +133,23 @@ func schemaValidateCmd() *cobra.Command {
 				validateConfigScopes(scope)
 				return nil
 			}
-			cwd, _ := os.Getwd()
-			root, err := workspace.FindRoot(cwd)
-			if err != nil {
-				schemaEnvError(err.Error())
-				return nil
+			var p string
+			if name == "jdk" {
+				var err error
+				p, err = jdk.RegistryPath()
+				if err != nil {
+					schemaEnvError(err.Error())
+					return nil
+				}
+			} else {
+				cwd, _ := os.Getwd()
+				root, err := workspace.FindRoot(cwd)
+				if err != nil {
+					schemaEnvError(err.Error())
+					return nil
+				}
+				p = filepath.Join(root, ".barista", name+".json")
 			}
-			p := filepath.Join(root, ".barista", name+".json")
 			b, err := os.ReadFile(p)
 			if err != nil {
 				schemaEnvError(fmt.Sprintf("cannot read %s: %v", filepath.ToSlash(p), err))

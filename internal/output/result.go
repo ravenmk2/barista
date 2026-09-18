@@ -20,6 +20,11 @@ const (
 	CodeConfigError             = "CONFIG_ERROR"
 	CodeNoMatchingRepos         = "NO_MATCHING_REPOS"
 	CodeWorkspaceNotFound       = "WORKSPACE_NOT_FOUND"
+	CodeJDKExists               = "JDK_EXISTS"
+	CodeJDKNotFound             = "JDK_NOT_FOUND"
+	CodeNotAJDK                 = "NOT_A_JDK"
+	CodeJDKProbeFailed          = "JDK_PROBE_FAILED"
+	CodeJDKMajorMismatch        = "JDK_MAJOR_MISMATCH"
 )
 
 type ErrInfo struct {

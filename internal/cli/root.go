@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	gitcli "barista/internal/cli/git"
+	jdkcli "barista/internal/cli/jdk"
 )
 
 var ExitCode int
@@ -16,6 +17,7 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().Bool("json", false, "output results as JSON")
 	root.PersistentFlags().Int("parallel", 10, "max concurrent repo operations")
 	root.AddCommand(gitcli.NewCmd(&ExitCode))
+	root.AddCommand(jdkcli.NewCmd(&ExitCode))
 	root.AddCommand(schemaCmd())
 	return root
 }
