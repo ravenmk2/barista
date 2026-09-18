@@ -19,7 +19,7 @@ barista：面向多仓库工作区的开发环境管理 CLI（Java 生态优先�
 | `go test ./...`                  | 全绿；纯逻辑配单元测试（stdlib `testing`，同包）        |
 | `./build.sh`                     | 交叉编译六平台到 dist/，`--install` 装到 `~/.local/bin` |
 
-CLI 端到端行为靠离线 e2e：临时目录建 bare 仓库作为 `file://` 远端 + `.barista/` 工作区，脚本放 `$TEMP`，不进仓库。
+CLI 端到端行为靠离线 e2e：临时目录建 bare 仓库作为 `file://` 远端 + `.barista/` 工作区，脚本放 `$TEMP`，不进仓库。`go test` 必须全程离线（httptest / 临时目录可以）；真实网络验证只用手动 e2e，若未来确需联网测试用例，必须以环境变量门控且默认 skip，CI 不开启。
 
 ## 文档索引
 
