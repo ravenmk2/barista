@@ -15,6 +15,9 @@ var configSchema []byte
 //go:embed jdk.schema.json
 var jdkSchema []byte
 
+//go:embed maven.schema.json
+var mavenSchema []byte
+
 type Entry struct {
 	Name        string
 	Description string
@@ -36,6 +39,11 @@ var entries = map[string]Entry{
 		Name:        "jdk",
 		Description: "JDK registry (user level ~/.barista/jdk.json)",
 		Raw:         jdkSchema,
+	},
+	"maven": {
+		Name:        "maven",
+		Description: "Maven registry (user level ~/.barista/maven.json)",
+		Raw:         mavenSchema,
 	},
 }
 

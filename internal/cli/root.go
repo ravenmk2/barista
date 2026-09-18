@@ -5,6 +5,7 @@ import (
 
 	gitcli "barista/internal/cli/git"
 	jdkcli "barista/internal/cli/jdk"
+	mavencli "barista/internal/cli/maven"
 )
 
 var ExitCode int
@@ -18,6 +19,7 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().Int("parallel", 10, "max concurrent repo operations")
 	root.AddCommand(gitcli.NewCmd(&ExitCode))
 	root.AddCommand(jdkcli.NewCmd(&ExitCode))
+	root.AddCommand(mavencli.NewCmd(&ExitCode))
 	root.AddCommand(schemaCmd())
 	return root
 }

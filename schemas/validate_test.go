@@ -67,6 +67,42 @@ func TestValidate(t *testing.T) {
 			doc:       `{"color":"rainbow"}`,
 			wantPaths: []string{"color"},
 		},
+		{
+			name:      "config properties valid",
+			schema:    "config",
+			doc:       `{"properties":{"maven.jdk":"17","maven.default":"maven-3.9","future.key":4}}`,
+			wantValid: true,
+		},
+		{
+			name:      "config properties wrong type",
+			schema:    "config",
+			doc:       `{"properties":"maven.jdk=17"}`,
+			wantPaths: []string{"properties"},
+		},
+		{
+			name:      "maven minimal valid",
+			schema:    "maven",
+			doc:       `{"installations":[{"name":"maven-3.9","version":"3.9.11","path":"/opt/maven"}],"default":"maven-3.9","jdk":"17"}`,
+			wantValid: true,
+		},
+		{
+			name:      "maven empty object valid",
+			schema:    "maven",
+			doc:       `{}`,
+			wantValid: true,
+		},
+		{
+			name:      "maven installation missing version",
+			schema:    "maven",
+			doc:       `{"installations":[{"name":"maven-3.9","path":"/opt/maven"}]}`,
+			wantPaths: []string{"installations[0]"},
+		},
+		{
+			name:      "maven bad name pattern",
+			schema:    "maven",
+			doc:       `{"installations":[{"name":"Maven-3.9","version":"3.9.11","path":"/opt/maven"}]}`,
+			wantPaths: []string{"installations[0].name"},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

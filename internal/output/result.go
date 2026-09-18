@@ -31,6 +31,15 @@ const (
 	CodeJDKInstallFailed        = "JDK_INSTALL_FAILED"
 	CodeJDKNotManaged           = "JDK_NOT_MANAGED"
 	CodeJDKUninstallFailed      = "JDK_UNINSTALL_FAILED"
+	CodeMavenExists             = "MAVEN_EXISTS"
+	CodeMavenNotFound           = "MAVEN_NOT_FOUND"
+	CodeNotAMaven               = "NOT_A_MAVEN"
+	CodeMavenProbeFailed        = "MAVEN_PROBE_FAILED"
+	CodeMavenDownloadFailed     = "MAVEN_DOWNLOAD_FAILED"
+	CodeMavenChecksumMismatch   = "MAVEN_CHECKSUM_MISMATCH"
+	CodeMavenInstallFailed      = "MAVEN_INSTALL_FAILED"
+	CodeMavenNotManaged         = "MAVEN_NOT_MANAGED"
+	CodeMavenUninstallFailed    = "MAVEN_UNINSTALL_FAILED"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )
 

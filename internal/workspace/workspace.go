@@ -36,9 +36,20 @@ func (f *ReposFile) ConfigBool(key string) (bool, bool) {
 }
 
 type ConfigFile struct {
-	Parallel   int    `json:"parallel"`
-	Color      string `json:"color"`
-	InstallDir string `json:"installDir"`
+	Parallel        int            `json:"parallel"`
+	Color           string         `json:"color"`
+	InstallDir      string         `json:"installDir"`
+	MavenInstallDir string         `json:"mavenInstallDir"`
+	Properties      map[string]any `json:"properties"`
+}
+
+func (f ConfigFile) Property(key string) (string, bool) {
+	v, ok := f.Properties[key]
+	if !ok {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
 }
 
 type Workspace struct {
@@ -213,7 +224,74 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: installDir must be an absolute path (~ allowed)", source)}
 		}
 	}
+	if cf.MavenInstallDir != "" {
+		cf.MavenInstallDir = ExpandHome(cf.MavenInstallDir)
+		if !filepath.IsAbs(cf.MavenInstallDir) {
+			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: mavenInstallDir must be an absolute path (~ allowed)", source)}
+		}
+	}
 	return cf, nil
+}
+
+func LoadConfigFile(path string) (ConfigFile, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return ConfigFile{}, nil
+	}
+	if err != nil {
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot read %s: %v", filepath.ToSlash(path), err)}
+	}
+	return parseConfig(data, filepath.ToSlash(path))
+}
+
+func SetConfigProperty(path, key, value string) error {
+	doc := map[string]any{}
+	data, err := os.ReadFile(path)
+	switch {
+	case os.IsNotExist(err):
+	case err != nil:
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot read %s: %v", filepath.ToSlash(path), err)}
+	default:
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("invalid %s: %v", filepath.ToSlash(path), err)}
+		}
+	}
+	props, ok := doc["properties"].(map[string]any)
+	if !ok {
+		props = map[string]any{}
+		doc["properties"] = props
+	}
+	props[key] = value
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot encode %s: %v", filepath.ToSlash(path), err)}
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot create %s: %v", filepath.ToSlash(filepath.Dir(path)), err)}
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), "config.json.*")
+	if err != nil {
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(out); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		_ = os.Remove(path)
+		if err := os.Rename(tmpName, path); err != nil {
+			_ = os.Remove(tmpName)
+			return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
+		}
+	}
+	return nil
 }
 
 func ExpandHome(p string) string {

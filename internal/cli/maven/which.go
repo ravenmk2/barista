@@ -1,4 +1,4 @@
-package jdkcli
+package mavencli
 
 import (
 	"fmt"
@@ -7,31 +7,32 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/maven"
 	"barista/internal/output"
 )
 
 func whichCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "which <major|name>",
-		Short: "Resolve a JDK by major version (default first, else latest) or by exact name",
-		Args:  cobra.ExactArgs(1),
+		Use:   "which [name|version]",
+		Short: "Resolve a Maven installation by name, version (progressively widened), or the effective default",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pathOnly, _ := cmd.Flags().GetBool("pathonly")
-			runResolve(cmd, args[0], pathOnly)
+			runResolve(cmd, firstArg(args), pathOnly)
 			return nil
 		},
 	}
-	cmd.Flags().Bool("pathonly", false, "print only the JDK path, without a trailing newline")
+	cmd.Flags().Bool("pathonly", false, "print only the maven home path, without a trailing newline")
 	return cmd
 }
 
 func pathCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "path <major|name>",
-		Short: "Print the resolved JDK path (shortcut for: which --pathonly)",
-		Args:  cobra.ExactArgs(1),
+		Use:   "path [name|version]",
+		Short: "Print the resolved maven home path (shortcut for: which --pathonly)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runResolve(cmd, args[0], true)
+			runResolve(cmd, firstArg(args), true)
 			return nil
 		},
 	}
@@ -39,14 +40,21 @@ func pathCmd() *cobra.Command {
 
 func homeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "home <major|name>",
-		Short: "Print the resolved JDK path (same as: path)",
-		Args:  cobra.ExactArgs(1),
+		Use:   "home [name|version]",
+		Short: "Print the resolved maven home path (same as: path)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runResolve(cmd, args[0], true)
+			runResolve(cmd, firstArg(args), true)
 			return nil
 		},
 	}
+}
+
+func firstArg(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	return ""
 }
 
 func runResolve(cmd *cobra.Command, arg string, pathOnly bool) {
@@ -55,7 +63,18 @@ func runResolve(cmd *cobra.Command, arg string, pathOnly bool) {
 	if !ok {
 		return
 	}
-	entry, source, e := reg.Resolve(arg)
+	var entry *maven.Entry
+	var source string
+	var e *output.ErrInfo
+	if arg != "" {
+		entry, source, e = reg.Resolve(arg)
+	} else {
+		wsCfg, ok := workspaceConfig(cmd)
+		if !ok {
+			return
+		}
+		entry, source, e = resolveEffectiveDefault(reg, effective(reg, wsCfg))
+	}
 	if e != nil {
 		fmt.Fprintf(os.Stderr, "barista: %s: %s\n", e.Code, e.Message)
 		if e.Hint != "" {
@@ -77,7 +96,6 @@ func runResolve(cmd *cobra.Command, arg string, pathOnly bool) {
 		Status: output.StatusOK,
 		Action: "which",
 		Detail: map[string]any{
-			"major":   entry.Major,
 			"version": entry.Version,
 			"managed": entry.Managed,
 			"source":  source,

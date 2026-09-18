@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"barista/internal/jdk"
+	"barista/internal/maven"
 	"barista/internal/workspace"
 	"barista/schemas"
 )
@@ -134,14 +135,22 @@ func schemaValidateCmd() *cobra.Command {
 				return nil
 			}
 			var p string
-			if name == "jdk" {
+			switch name {
+			case "jdk":
 				var err error
 				p, err = jdk.RegistryPath()
 				if err != nil {
 					schemaEnvError(err.Error())
 					return nil
 				}
-			} else {
+			case "maven":
+				var err error
+				p, err = maven.RegistryPath()
+				if err != nil {
+					schemaEnvError(err.Error())
+					return nil
+				}
+			default:
 				cwd, _ := os.Getwd()
 				root, err := workspace.FindRoot(cwd)
 				if err != nil {

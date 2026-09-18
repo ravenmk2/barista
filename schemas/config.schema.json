@@ -22,6 +22,28 @@
       "type": "string",
       "minLength": 1,
       "description": "Install root for barista jdk install (default ~/.barista/toolchains/jdk); user level only, must be an absolute path (~ allowed)"
+    },
+    "mavenInstallDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Install root for barista maven install (default ~/.barista/toolchains/maven); user level only, must be an absolute path (~ allowed)"
+    },
+    "properties": {
+      "type": "object",
+      "description": "Free-form domain extension settings keyed by dotted names; maven.* keys are consulted at workspace level only",
+      "additionalProperties": true,
+      "properties": {
+        "maven.jdk": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace override of the JDK spec used to run maven (overrides ~/.barista/maven.json jdk); workspace level only"
+        },
+        "maven.default": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace override of the default maven installation name (overrides ~/.barista/maven.json default); workspace level only"
+        }
+      }
     }
   }
 }

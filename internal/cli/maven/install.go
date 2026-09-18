@@ -1,33 +1,30 @@
-package jdkcli
+package mavencli
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"barista/internal/download"
-	"barista/internal/jdk"
+	"barista/internal/maven"
 	"barista/internal/output"
 )
 
 func installCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "install <distro><major>",
-		Short: "Download and install a JDK into the managed install dir",
-		Example: `  barista jdk install temurin17
-  barista jdk install temurin8`,
+		Use:   "install <version>",
+		Short: "Download Maven from the Apache archive (sha512-verified) into the managed install dir",
+		Example: `  barista maven install 3.9.11
+  barista maven install 4.0.0-rc-4`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 				return err
 			}
-			if _, _, ok := jdk.ParseDistroArg(args[0]); !ok {
-				return fmt.Errorf("invalid distro %q (want e.g. temurin17)", args[0])
+			if _, _, err := maven.ParseVersion(args[0]); err != nil {
+				return fmt.Errorf("invalid version %q (want e.g. 3.9.11)", args[0])
 			}
 			return nil
 		},
@@ -41,47 +38,30 @@ func installCmd() *cobra.Command {
 			if !ok {
 				return nil
 			}
-			distro, major, _ := jdk.ParseDistroArg(args[0])
-			name := distro + strconv.Itoa(major)
+			version := args[0]
+			name := autoName(reg, version)
 			res := output.Result{Name: name, Action: "install"}
 			failRes := func(e *output.ErrInfo) {
 				res.Status = output.StatusFailed
 				res.Error = e
 				failResult(cmd, p, res)
 			}
-			prov, ok := jdk.ProviderFor(distro)
-			if !ok {
-				failRes(&output.ErrInfo{
-					Code:    output.CodeJDKUnsupportedDistro,
-					Message: fmt.Sprintf("unsupported distro %q", distro),
-					Hint:    "supported: " + strings.Join(jdk.SupportedDistros(), ", "),
-				})
+			url, err := maven.ArchiveURL(version)
+			if err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
 				return nil
 			}
-			if reg.Find(name) != nil {
-				failRes(&output.ErrInfo{
-					Code:    output.CodeJDKExists,
-					Message: fmt.Sprintf("JDK %q is already registered", name),
-					Hint:    "to reinstall, run: barista jdk uninstall " + name,
-				})
-				return nil
-			}
-			root, err := jdk.InstallDir(cfg.InstallDir)
+			root, err := maven.InstallDir(cfg.MavenInstallDir)
 			if err != nil {
 				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
-				return nil
-			}
-			url, err := prov.ArchiveURL(major, runtime.GOOS, runtime.GOARCH)
-			if err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeJDKUnsupportedPlatform, Message: err.Error()})
 				return nil
 			}
 			destDir := filepath.Join(root, name)
 			if _, err := os.Stat(destDir); err == nil {
 				failRes(&output.ErrInfo{
-					Code:    output.CodeJDKExists,
+					Code:    output.CodeMavenExists,
 					Message: fmt.Sprintf("%s already exists but is not registered", filepath.ToSlash(destDir)),
-					Hint:    fmt.Sprintf("delete it or register it with: barista jdk add %s %s", name, filepath.ToSlash(destDir)),
+					Hint:    fmt.Sprintf("delete it or register it with: barista maven add %s", filepath.ToSlash(destDir)),
 				})
 				return nil
 			}
@@ -89,9 +69,9 @@ func installCmd() *cobra.Command {
 			if !jsonOut {
 				fmt.Fprintln(os.Stderr, p.Dim("downloading "+url))
 			}
-			tmp, err := os.CreateTemp("", "barista-jdk-*")
+			tmp, err := os.CreateTemp("", "barista-maven-*")
 			if err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
 				return nil
 			}
 			tmpPath := tmp.Name()
@@ -116,36 +96,62 @@ func installCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr)
 			}
 			if err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeJDKDownloadFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenDownloadFailed, Message: err.Error()})
+				return nil
+			}
+			sumTmp, err := os.CreateTemp("", "barista-maven-sha512-*")
+			if err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
+				return nil
+			}
+			sumPath := sumTmp.Name()
+			_ = sumTmp.Close()
+			defer func() { _ = os.Remove(sumPath) }()
+			if err := download.Download(cmd.Context(), maven.ChecksumURL(url), sumPath, nil); err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeMavenDownloadFailed, Message: "checksum: " + err.Error()})
+				return nil
+			}
+			sumData, err := os.ReadFile(sumPath)
+			if err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeMavenDownloadFailed, Message: err.Error()})
+				return nil
+			}
+			wantSum, err := maven.ParseSHA512(string(sumData))
+			if err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeMavenDownloadFailed, Message: err.Error()})
+				return nil
+			}
+			if err := maven.VerifySHA512(tmpPath, wantSum); err != nil {
+				failRes(&output.ErrInfo{Code: output.CodeMavenChecksumMismatch, Message: err.Error()})
 				return nil
 			}
 			if !jsonOut {
 				fmt.Fprintln(os.Stderr, p.Dim("extracting to "+filepath.ToSlash(destDir)))
 			}
 			if err := os.MkdirAll(root, 0o755); err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
 				return nil
 			}
 			tmpDest, err := os.MkdirTemp(root, ".tmp-"+name+"-*")
 			if err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
 				return nil
 			}
 			if err := download.Extract(tmpPath, tmpDest); err != nil {
 				_ = os.RemoveAll(tmpDest)
-				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
 				return nil
 			}
 			if err := os.Rename(tmpDest, destDir); err != nil {
 				_ = os.RemoveAll(tmpDest)
-				failRes(&output.ErrInfo{Code: output.CodeJDKInstallFailed, Message: err.Error()})
+				failRes(&output.ErrInfo{Code: output.CodeMavenInstallFailed, Message: err.Error()})
 				return nil
 			}
-			info, e := jdk.Probe(destDir)
-			if e == nil && info.Major != major {
+			info, e := maven.Probe(destDir)
+			if e == nil && info.Version != version {
 				e = &output.ErrInfo{
-					Code:    output.CodeJDKProbeFailed,
-					Message: fmt.Sprintf("downloaded JDK reports major %d, want %d", info.Major, major),
+					Code:    output.CodeMavenProbeFailed,
+					Message: fmt.Sprintf("downloaded maven reports version %s, want %s", info.Version, version),
 				}
 			}
 			if e != nil {
@@ -153,7 +159,7 @@ func installCmd() *cobra.Command {
 				failRes(e)
 				return nil
 			}
-			if e := reg.Add(jdk.Entry{Name: name, Major: info.Major, Version: info.Version, Path: info.Home, Managed: true}); e != nil {
+			if e := reg.Add(maven.Entry{Name: name, Version: info.Version, Path: info.Home, Managed: true}); e != nil {
 				_ = os.RemoveAll(destDir)
 				failRes(e)
 				return nil
@@ -164,13 +170,11 @@ func installCmd() *cobra.Command {
 			res.Status = output.StatusOK
 			res.Path = filepath.ToSlash(info.Home)
 			res.Detail = map[string]any{
-				"major":   info.Major,
 				"version": info.Version,
-				"distro":  info.Distro,
 				"managed": true,
 			}
 			if !jsonOut {
-				fmt.Printf("installed %s (%s %s) at %s\n", p.Cyan(name), info.Distro, info.Version, filepath.ToSlash(info.Home))
+				fmt.Printf("installed %s (%s) at %s\n", p.Cyan(name), info.Version, filepath.ToSlash(info.Home))
 			}
 			finish(cmd, []output.Result{res})
 			return nil

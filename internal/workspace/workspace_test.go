@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -95,7 +96,7 @@ func TestMergeConfig(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := MergeConfig(tc.user, tc.ws); got != tc.want {
+			if got := MergeConfig(tc.user, tc.ws); !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("MergeConfig(%+v, %+v) = %+v, want %+v", tc.user, tc.ws, got, tc.want)
 			}
 		})
