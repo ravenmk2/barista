@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-19T13:47:42Z",
+  "distros": {
+    "zulu": [
+      {
+        "major": 8,
+        "version": "8.0.504",
+        "lts": true,
+        "assets": {
+          "windows/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.205-ca-jdk8.0.504-win_x64.zip"
+          },
+          "linux/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.205-ca-jdk8.0.504-linux_x64.tar.gz"
+          },
+          "linux/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.205-ca-jdk8.0.504-linux_aarch64.tar.gz"
+          },
+          "darwin/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.205-ca-jdk8.0.504-macosx_x64.tar.gz"
+          },
+          "darwin/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.205-ca-jdk8.0.504-macosx_aarch64.tar.gz"
+          }
+        }
+      },
+      {
+        "major": 11,
+        "version": "11.0.32.1",
+        "lts": true,
+        "assets": {
+          "windows/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu11.90.205-ca-jdk11.0.32.1-win_x64.zip"
+          },
+          "linux/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu11.90.205-ca-jdk11.0.32.1-linux_x64.tar.gz"
+          },
+          "linux/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu11.90.205-ca-jdk11.0.32.1-linux_aarch64.tar.gz"
+          },
+          "darwin/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu11.90.205-ca-jdk11.0.32.1-macosx_x64.tar.gz"
+          },
+          "darwin/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu11.90.205-ca-jdk11.0.32.1-macosx_aarch64.tar.gz"
+          }
+        }
+      },
+      {
+        "major": 17,
+        "version": "17.0.20.1",
+        "lts": true,
+        "assets": {
+          "windows/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-win_x64.zip"
+          },
+          "windows/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-win_aarch64.zip"
+          },
+          "linux/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-linux_x64.tar.gz"
+          },
+          "linux/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-linux_aarch64.tar.gz"
+          },
+          "darwin/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-macosx_x64.tar.gz"
+          },
+          "darwin/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu17.68.203-ca-jdk17.0.20.1-macosx_aarch64.tar.gz"
+          }
+        }
+      },
+      {
+        "major": 21,
+        "version": "21.0.12.1",
+        "lts": true,
+        "assets": {
+          "windows/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-win_x64.zip"
+          },
+          "windows/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-win_aarch64.zip"
+          },
+          "linux/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-linux_x64.tar.gz"
+          },
+          "linux/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-linux_aarch64.tar.gz"
+          },
+          "darwin/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-macosx_x64.tar.gz"
+          },
+          "darwin/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu21.52.203-ca-jdk21.0.12.1-macosx_aarch64.tar.gz"
+          }
+        }
+      },
+      {
+        "major": 25,
+        "version": "25.0.4.1",
+        "lts": true,
+        "assets": {
+          "windows/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-win_x64.zip"
+          },
+          "windows/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-win_aarch64.zip"
+          },
+          "linux/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-linux_x64.tar.gz"
+          },
+          "linux/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-linux_aarch64.tar.gz"
+          },
+          "darwin/amd64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-macosx_x64.tar.gz"
+          },
+          "darwin/arm64": {
+            "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-macosx_aarch64.tar.gz"
+          }
+        }
+      }
+    ]
+  }
+}

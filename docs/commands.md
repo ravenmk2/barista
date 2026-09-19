@@ -160,7 +160,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 | ---------------------------- | ----------------------------------------------------------- |
 | `discover`                   | 扫描 JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 并注册 |
 | `add <name> <path>`          | 注册已安装的 JDK（起 `java` 探测版本与发行版；`javac` 仅做存在性检查） |
-| `install <distro><major>`    | 下载并安装到托管目录（temurin 走 Adoptium API；microsoft / corretto 为 permalink 直链） |
+| `install <distro><major>`    | 下载并安装到托管目录（temurin 走 Adoptium API；microsoft / corretto 为 permalink 直链；zulu 走嵌入数据） |
 | `available`                  | 列出远端可安装的 JDK（major / 最新版本 / LTS / 是否已装）   |
 | `list`                       | 列出已注册 JDK（别名 `ls`）                                 |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
@@ -177,7 +177,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符报 USAGE_ERROR（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
-- available：查询 Adoptium API 列出可安装项（用户显式调用才联网）；按 major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；版本查询失败的 major 仍列出、version 置空；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
+- available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
 - remove：直接注销，无确认、不删文件（幂等），并级联清理 jdk.json 中所有指向该 JDK 的 defaults
