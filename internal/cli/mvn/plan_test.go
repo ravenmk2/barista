@@ -44,7 +44,7 @@ func TestPlanJdkPriority(t *testing.T) {
 	withAll := func(in planInput) planInput {
 		in.jdkFlag = "8"
 		in.repos[0].Properties = map[string]string{"jdk": "17"}
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"jdk": "temurin17"}}
+		in.props = workspace.Properties{"jdk": "temurin17"}
 		in.mavenReg.Jdk = "temurin8"
 		return in
 	}
@@ -129,7 +129,7 @@ func TestPlanMavenDefault(t *testing.T) {
 	t.Run("workspace property wins", func(t *testing.T) {
 		in := wsInput(t)
 		in.mavenReg.Installations = append(in.mavenReg.Installations, maven.Entry{Name: "maven-4", Version: "4.0.0", Path: "/m/4"})
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.default": "maven-4"}}
+		in.props = workspace.Properties{"maven.default": "maven-4"}
 		p, e := planExec(in)
 		if e != nil {
 			t.Fatal(e)
@@ -141,7 +141,7 @@ func TestPlanMavenDefault(t *testing.T) {
 
 	t.Run("unregistered workspace default is a loud error", func(t *testing.T) {
 		in := wsInput(t)
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.default": "ghost"}}
+		in.props = workspace.Properties{"maven.default": "ghost"}
 		_, e := planExec(in)
 		if e == nil || e.Code != output.CodeMavenNotFound {
 			t.Fatalf("want MAVEN_NOT_FOUND, got %+v", e)
@@ -243,7 +243,7 @@ func TestPlanSettingsInjection(t *testing.T) {
 func TestPlanRepoLocal(t *testing.T) {
 	t.Run("relative path anchors to workspace root", func(t *testing.T) {
 		in := wsInput(t)
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.repo.local": ".barista/m2"}}
+		in.props = workspace.Properties{"maven.repo.local": ".barista/m2"}
 		p, e := planExec(in)
 		if e != nil {
 			t.Fatal(e)
@@ -257,7 +257,7 @@ func TestPlanRepoLocal(t *testing.T) {
 	t.Run("absolute path kept", func(t *testing.T) {
 		in := wsInput(t)
 		abs := filepath.Join(t.TempDir(), "repo")
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.repo.local": abs}}
+		in.props = workspace.Properties{"maven.repo.local": abs}
 		p, e := planExec(in)
 		if e != nil {
 			t.Fatal(e)
@@ -269,7 +269,7 @@ func TestPlanRepoLocal(t *testing.T) {
 
 	t.Run("user -Dmaven.repo.local suppresses injection", func(t *testing.T) {
 		in := wsInput(t)
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.repo.local": ".barista/m2"}}
+		in.props = workspace.Properties{"maven.repo.local": ".barista/m2"}
 		in.passthrough = []string{"-Dmaven.repo.local=/elsewhere", "package"}
 		p, e := planExec(in)
 		if e != nil {
@@ -306,7 +306,7 @@ func TestPlanMavenBinPerPlatform(t *testing.T) {
 func TestPlanArgsOrder(t *testing.T) {
 	in := wsInput(t)
 	writeSettings(t, in.wsRoot, "settings.xml")
-	in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.repo.local": ".barista/m2"}}
+	in.props = workspace.Properties{"maven.repo.local": ".barista/m2"}
 	in.passthrough = []string{"clean", "install", "-DskipTests"}
 	p, e := planExec(in)
 	if e != nil {
@@ -327,7 +327,6 @@ func TestPlanOutsideWorkspace(t *testing.T) {
 	in := wsInput(t)
 	in.wsRoot = ""
 	in.repos = nil
-	in.wsCfg = workspace.ConfigFile{}
 	in.cwd = t.TempDir()
 	in.mavenReg.Jdk = "temurin17"
 	p, e := planExec(in)

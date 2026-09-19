@@ -29,11 +29,11 @@ func listCmd() *cobra.Command {
 			if !ok {
 				return nil
 			}
-			wsCfg, ok := workspaceConfig(cmd)
+			props, ok := workspaceProperties(cmd)
 			if !ok {
 				return nil
 			}
-			eff := effective(reg, wsCfg)
+			eff := effective(reg, props)
 			results := make([]output.Result, len(reg.Installations))
 			for i, e := range reg.Installations {
 				detail := map[string]any{

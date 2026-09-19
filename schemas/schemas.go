@@ -18,6 +18,9 @@ var jdkSchema []byte
 //go:embed maven.schema.json
 var mavenSchema []byte
 
+//go:embed properties.schema.json
+var propertiesSchema []byte
+
 type Entry struct {
 	Name        string
 	Description string
@@ -44,6 +47,11 @@ var entries = map[string]Entry{
 		Name:        "maven",
 		Description: "Maven registry (user level ~/.barista/maven.json)",
 		Raw:         mavenSchema,
+	},
+	"properties": {
+		Name:        "properties",
+		Description: "workspace execution preferences (<workspace>/.barista/properties.json)",
+		Raw:         propertiesSchema,
 	},
 }
 

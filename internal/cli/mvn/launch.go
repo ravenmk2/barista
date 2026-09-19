@@ -27,7 +27,7 @@ func resolveStartup(in planInput, repo *workspace.Repo) (string, string, *output
 		}
 	}
 	if spec == "" {
-		if v, ok := in.wsCfg.Property("maven.startup"); ok && v != "" {
+		if v, ok := in.props.String("maven.startup"); ok && v != "" {
 			spec, src = v, "workspace"
 		}
 	}

@@ -40,12 +40,14 @@ barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
 
 ## 配置
 
-两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`properties`）：
+两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`）：
 
 | 级别      | 路径                                          |
 | --------- | --------------------------------------------- |
 | user      | `~/.barista/config.json`                        |
 | workspace | `<workspace>/.barista/config.json`（覆盖 user） |
+
+workspace 级另有 `<workspace>/.barista/properties.json`：执行环境偏好 KV（如 `jdk`、`maven.*` 键，由 `barista jdk use` / `barista maven set-default --scope workspace` 写入，仅 workspace 级存在）。
 
 user 级目录结构：
 
@@ -63,8 +65,8 @@ user 级目录结构：
 
 ```bash
 barista schema list                                      # 列出内嵌 JSON Schema
-barista schema show repos|config|jdk|maven               # 输出 schema 原文
-barista schema validate repos|config|jdk|maven [file]    # 校验（config 默认校验 user + workspace 两级）
+barista schema show repos|config|jdk|maven|properties               # 输出 schema 原文
+barista schema validate repos|config|jdk|maven|properties [file]    # 校验（config 默认校验 user + workspace 两级）
                          [--scope user|workspace]
 ```
 

@@ -15,7 +15,7 @@ import (
 func useCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "use <major|name>",
-		Short: `Set the JDK for the current workspace (writes .barista/config.json properties["jdk"])`,
+		Short: `Set the JDK for the current workspace (writes .barista/properties.json "jdk")`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
@@ -47,8 +47,8 @@ func useCmd() *cobra.Command {
 				failResult(cmd, p, output.Result{Name: spec, Action: "use", Status: output.StatusFailed, Error: e})
 				return nil
 			}
-			cfgPath := filepath.Join(root, ".barista", "config.json")
-			if err := workspace.SetConfigProperty(cfgPath, "jdk", spec); err != nil {
+			cfgPath := filepath.Join(root, ".barista", "properties.json")
+			if err := workspace.SetProperty(cfgPath, "jdk", spec); err != nil {
 				ce := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
 				var le *workspace.LoadError
 				if errors.As(err, &le) {

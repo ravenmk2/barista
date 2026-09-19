@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/properties.schema.json",
+  "title": "barista properties.json",
+  "description": "Workspace execution preferences (<workspace>/.barista/properties.json); workspace level only; values must be scalars; unknown keys are ignored",
+  "type": "object",
+  "additionalProperties": { "type": ["string", "number", "boolean"] },
+  "properties": {
+    "jdk": {
+      "type": "string",
+      "minLength": 1,
+      "description": "JDK spec for this workspace (major like \"17\" or a jdk registry name; set by barista jdk use; overrides ~/.barista/maven.json jdk)"
+    },
+    "maven.default": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace override of the default maven installation name (set by barista maven set-default --scope workspace; overrides ~/.barista/maven.json default)"
+    },
+    "maven.repo.local": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace-local maven repository; barista mvn injects -Dmaven.repo.local (relative paths anchor at the workspace root, ~ allowed)"
+    },
+    "maven.startup": {
+      "type": "string",
+      "enum": ["script", "jar"],
+      "description": "How barista mvn starts Maven in this workspace: script (wrapper, default) or jar (direct classworlds launch); overridden by --startup and repo properties"
+    }
+  }
+}

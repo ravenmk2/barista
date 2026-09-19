@@ -68,16 +68,16 @@ func TestValidate(t *testing.T) {
 			wantPaths: []string{"color"},
 		},
 		{
-			name:      "config properties valid",
-			schema:    "config",
-			doc:       `{"properties":{"jdk":"17","maven.default":"maven-3.9","future.key":4}}`,
+			name:      "properties scalar values valid",
+			schema:    "properties",
+			doc:       `{"jdk":"17","maven.default":"maven-3.9","threads":4,"offline":true,"future.key":"x"}`,
 			wantValid: true,
 		},
 		{
-			name:      "config properties wrong type",
-			schema:    "config",
-			doc:       `{"properties":"jdk=17"}`,
-			wantPaths: []string{"properties"},
+			name:      "properties non-scalar value",
+			schema:    "properties",
+			doc:       `{"jdk":["17"]}`,
+			wantPaths: []string{"jdk"},
 		},
 		{
 			name:      "maven minimal valid",

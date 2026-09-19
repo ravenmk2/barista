@@ -29,11 +29,11 @@ func configCmd() *cobra.Command {
 			if !ok {
 				return nil
 			}
-			wsCfg, ok := workspaceConfig(cmd)
+			props, ok := workspaceProperties(cmd)
 			if !ok {
 				return nil
 			}
-			eff := effective(reg, wsCfg)
+			eff := effective(reg, props)
 			detail := map[string]any{}
 
 			jdkSpec, jdkSrc := eff.Jdk, eff.JdkSource
@@ -67,7 +67,7 @@ func configCmd() *cobra.Command {
 				} else {
 					detail["settings"] = map[string]any{"value": "", "source": "ambient"}
 				}
-				if v, ok := wsCfg.Property("maven.repo.local"); ok && v != "" {
+				if v, ok := props.String("maven.repo.local"); ok && v != "" {
 					v = workspace.ExpandHome(v)
 					if !filepath.IsAbs(v) {
 						v = filepath.Join(wsRoot, v)
@@ -186,7 +186,7 @@ func printConfig(detail map[string]any, p output.Palette) {
 		if v == "" {
 			v = p.Dim("(none)")
 		}
-		_, _ = fmt.Fprintf(w, "repo.local\t%s\t%s\n", v, sourceLabel(ld, "config.json"))
+		_, _ = fmt.Fprintf(w, "repo.local\t%s\t%s\n", v, sourceLabel(ld, "properties.json"))
 	}
 
 	inst := detail["installDir"].(map[string]any)
@@ -206,7 +206,7 @@ func sourceLabel(d map[string]any, userFile string) string {
 	case "user":
 		return "user (~/.barista/" + userFile + ")"
 	case "workspace":
-		return "workspace (.barista/config.json)"
+		return "workspace (.barista/properties.json)"
 	case "repo":
 		return "repo (repos.json properties)"
 	case "builtin":

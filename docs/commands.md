@@ -81,7 +81,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
 | `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
-| `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace config.json `properties["jdk"]`） |
+| `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace `.barista/properties.json` 的 `jdk` 键） |
 | `remove <name>`              | 仅注销，保留磁盘文件                                        |
 | `uninstall <name>`           | 删除 managed 安装并注销（级联清理 defaults）                |
 
@@ -103,7 +103,7 @@ barista jdk which 17
 
 ## maven — Maven 注册表管理
 
-注册表为 user 级 `~/.barista/maven.json`。托管安装目录默认 `~/.barista/toolchains/maven/`（maven.json 顶层 `installDir` 字段，用 `barista maven set-install-dir` 设置）。`set-default` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/config.json` 的 properties）；`set-jdk` 只写 user 级（workspace 级 JDK 用 `barista jdk use`）。
+注册表为 user 级 `~/.barista/maven.json`。托管安装目录默认 `~/.barista/toolchains/maven/`（maven.json 顶层 `installDir` 字段，用 `barista maven set-install-dir` 设置）。`set-default` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/properties.json`）；`set-jdk` 只写 user 级（workspace 级 JDK 用 `barista jdk use`）。
 
 ### 子命令
 
@@ -156,11 +156,11 @@ barista mvn [flags] -- <mvn args...>
 
 ### 解析链（高 → 低）
 
-- Maven 安装：workspace `maven.default` > user maven.json default（无 repo 级）
-- JDK：`--jdk` > repo `properties["jdk"]` > workspace `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
+- Maven 安装：workspace properties.json `maven.default` > user maven.json default（无 repo 级）
+- JDK：`--jdk` > repo `properties["jdk"]` > workspace properties.json `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
 - settings.xml：存在 `.barista/maven/settings.xml` 时注入 `-s`（自行传 `-s`/`--settings` 则跳过）；同目录 `settings-security.xml` 存在时配套注入 `-Dsettings.security`（自行传 `-s`/`--settings` 或 `-Dsettings.security` 则跳过）
-- 本地仓库：workspace `maven.repo.local` 注入 `-Dmaven.repo.local`（自行传则跳过）；相对路径基于 workspace 根，支持 `~` 展开
-- startup：`--startup` > repo `maven.startup` > workspace `maven.startup` > `script`
+- 本地仓库：workspace properties.json `maven.repo.local` 注入 `-Dmaven.repo.local`（自行传则跳过）；相对路径基于 workspace 根，支持 `~` 展开
+- startup：`--startup` > repo `maven.startup` > workspace properties.json `maven.startup` > `script`
 
 ### 其他行为
 
@@ -179,7 +179,7 @@ barista mvn --jdk 17 --dry-run -- -q validate
 
 | 命令                          | 行为                                         |
 | ----------------------------- | -------------------------------------------- |
-| `list`                        | 列出可用 schema（repos / config / jdk / maven） |
+| `list`                        | 列出可用 schema（repos / config / jdk / maven / properties） |
 | `show <name>`                 | 输出 schema 原文 JSON                        |
 | `validate <name> [file]`      | 校验配置文件                                 |
 
@@ -188,6 +188,7 @@ barista mvn --jdk 17 --dry-run -- -q validate
 - 显式给 `file` 时校验该文件（此时不可再用 `--scope`）
 - `jdk` / `maven`：默认校验对应 user 级注册表（`~/.barista/jdk.json` / `maven.json`）
 - `config`：默认同时校验 user 与 workspace 两级；`--scope user|workspace` 限定单级
+- `properties`：默认校验当前工作区 `.barista/properties.json`
 - 其他（如 `repos`）：默认校验当前工作区 `.barista/<name>.json`
 
 ### 退出码与输出

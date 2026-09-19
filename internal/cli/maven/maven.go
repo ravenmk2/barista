@@ -109,12 +109,12 @@ func failResult(cmd *cobra.Command, p output.Palette, res output.Result) {
 	finish(cmd, []output.Result{res})
 }
 
-func workspaceConfig(cmd *cobra.Command) (workspace.ConfigFile, bool) {
+func workspaceProperties(cmd *cobra.Command) (workspace.Properties, bool) {
 	root := findWorkspaceRoot()
 	if root == "" {
-		return workspace.ConfigFile{}, true
+		return nil, true
 	}
-	cf, err := workspace.LoadConfigFile(filepath.Join(root, ".barista", "config.json"))
+	props, err := workspace.LoadProperties(filepath.Join(root, ".barista", "properties.json"))
 	if err != nil {
 		e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
 		var le *workspace.LoadError
@@ -122,9 +122,9 @@ func workspaceConfig(cmd *cobra.Command) (workspace.ConfigFile, bool) {
 			e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
 		}
 		fail(cmd, e)
-		return workspace.ConfigFile{}, false
+		return nil, false
 	}
-	return cf, true
+	return props, true
 }
 
 func requireWorkspaceRoot(cmd *cobra.Command) (string, bool) {
@@ -149,7 +149,7 @@ func findWorkspaceRoot() string {
 }
 
 func addScopeFlag(cmd *cobra.Command) {
-	cmd.Flags().String("scope", "user", "where to write: user (~/.barista/maven.json) or workspace (<workspace>/.barista/config.json properties)")
+	cmd.Flags().String("scope", "user", "where to write: user (~/.barista/maven.json) or workspace (<workspace>/.barista/properties.json)")
 }
 
 func scopeOf(cmd *cobra.Command) (string, bool) {
@@ -166,8 +166,8 @@ func writeWorkspaceProperty(cmd *cobra.Command, key, value string) bool {
 	if !ok {
 		return false
 	}
-	p := filepath.Join(root, ".barista", "config.json")
-	if err := workspace.SetConfigProperty(p, key, value); err != nil {
+	p := filepath.Join(root, ".barista", "properties.json")
+	if err := workspace.SetProperty(p, key, value); err != nil {
 		e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
 		var le *workspace.LoadError
 		if errors.As(err, &le) {
@@ -184,14 +184,14 @@ type effectiveSettings struct {
 	Jdk, JdkSource         string
 }
 
-func effective(reg *maven.Registry, wsCfg workspace.ConfigFile) effectiveSettings {
+func effective(reg *maven.Registry, props workspace.Properties) effectiveSettings {
 	var eff effectiveSettings
-	if v, ok := wsCfg.Property("maven.default"); ok && v != "" {
+	if v, ok := props.String("maven.default"); ok && v != "" {
 		eff.Default, eff.DefaultSource = v, "workspace"
 	} else if reg.Default != "" {
 		eff.Default, eff.DefaultSource = reg.Default, "user"
 	}
-	if v, ok := wsCfg.Property("jdk"); ok && v != "" {
+	if v, ok := props.String("jdk"); ok && v != "" {
 		eff.Jdk, eff.JdkSource = v, "workspace"
 	} else if reg.Jdk != "" {
 		eff.Jdk, eff.JdkSource = reg.Jdk, "user"

@@ -17,23 +17,6 @@
       "enum": ["auto", "always", "never"],
       "default": "auto",
       "description": "Color output mode; NO_COLOR env var takes precedence over everything"
-    },
-    "properties": {
-      "type": "object",
-      "description": "Free-form domain extension settings keyed by dotted names; jdk and maven.* keys are consulted at workspace level only",
-      "additionalProperties": true,
-      "properties": {
-        "jdk": {
-          "type": "string",
-          "minLength": 1,
-          "description": "JDK spec for this workspace (major like \"17\" or a jdk registry name; set by barista jdk use; overrides ~/.barista/maven.json jdk)"
-        },
-        "maven.default": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Workspace override of the default maven installation name (overrides ~/.barista/maven.json default); workspace level only"
-        }
-      }
     }
   }
 }

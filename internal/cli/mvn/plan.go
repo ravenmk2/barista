@@ -20,7 +20,7 @@ type planInput struct {
 	passthrough []string
 	wsRoot      string
 	repos       []workspace.Repo
-	wsCfg       workspace.ConfigFile
+	props       workspace.Properties
 	mavenReg    *maven.Registry
 	jdkReg      *jdk.Registry
 }
@@ -102,7 +102,7 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 	}
 
 	if in.wsRoot != "" && !hasSystemProp(in.passthrough, "maven.repo.local") {
-		if v, ok := in.wsCfg.Property("maven.repo.local"); ok && v != "" {
+		if v, ok := in.props.String("maven.repo.local"); ok && v != "" {
 			v = workspace.ExpandHome(v)
 			if !filepath.IsAbs(v) {
 				v = filepath.Join(in.wsRoot, v)
@@ -132,7 +132,7 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 }
 
 func resolveMaven(in planInput) (*maven.Entry, string, *output.ErrInfo) {
-	if v, ok := in.wsCfg.Property("maven.default"); ok && v != "" {
+	if v, ok := in.props.String("maven.default"); ok && v != "" {
 		if e := in.mavenReg.Find(v); e != nil {
 			return e, "workspace", nil
 		}
@@ -167,7 +167,7 @@ func resolveJdk(in planInput, repo *workspace.Repo) (*jdk.Entry, string, string,
 		}
 	}
 	if spec == "" {
-		if v, ok := in.wsCfg.Property("jdk"); ok && v != "" {
+		if v, ok := in.props.String("jdk"); ok && v != "" {
 			spec, src = v, "workspace"
 		}
 	}

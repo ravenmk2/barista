@@ -56,7 +56,7 @@ func TestResolveStartup(t *testing.T) {
 	})
 
 	t.Run("flag beats repo and workspace", func(t *testing.T) {
-		in := planInput{startupFlag: "script", wsCfg: workspace.ConfigFile{Properties: map[string]any{"maven.startup": "jar"}}}
+		in := planInput{startupFlag: "script", props: workspace.Properties{"maven.startup": "jar"}}
 		spec, src, e := resolveStartup(in, repo)
 		if e != nil || spec != "script" || src != "flag" {
 			t.Errorf("want script/flag, got %s/%s %v", spec, src, e)
@@ -64,7 +64,7 @@ func TestResolveStartup(t *testing.T) {
 	})
 
 	t.Run("repo beats workspace", func(t *testing.T) {
-		in := planInput{wsCfg: workspace.ConfigFile{Properties: map[string]any{"maven.startup": "script"}}}
+		in := planInput{props: workspace.Properties{"maven.startup": "script"}}
 		spec, src, e := resolveStartup(in, repo)
 		if e != nil || spec != "jar" || src != "repo" {
 			t.Errorf("want jar/repo, got %s/%s %v", spec, src, e)
@@ -72,7 +72,7 @@ func TestResolveStartup(t *testing.T) {
 	})
 
 	t.Run("workspace property", func(t *testing.T) {
-		in := planInput{wsCfg: workspace.ConfigFile{Properties: map[string]any{"maven.startup": "jar"}}}
+		in := planInput{props: workspace.Properties{"maven.startup": "jar"}}
 		spec, src, e := resolveStartup(in, nil)
 		if e != nil || spec != "jar" || src != "workspace" {
 			t.Errorf("want jar/workspace, got %s/%s %v", spec, src, e)

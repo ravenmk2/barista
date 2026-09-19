@@ -95,7 +95,16 @@ func buildPlan(cmd *cobra.Command, jdkFlag, startupFlag string, passthrough []st
 		}
 		in.wsRoot = ws.Root
 		in.repos = ws.Repos.Repos
-		in.wsCfg = ws.Cfg
+		props, err := workspace.LoadProperties(filepath.Join(ws.Root, ".barista", "properties.json"))
+		if err != nil {
+			e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
+			var le *workspace.LoadError
+			if errors.As(err, &le) {
+				e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
+			}
+			return nil, e
+		}
+		in.props = props
 	}
 	mavenPath, err := maven.RegistryPath()
 	if err != nil {

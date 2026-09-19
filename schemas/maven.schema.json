@@ -41,12 +41,12 @@
     "default": {
       "type": "string",
       "minLength": 1,
-      "description": "Name of the default maven installation (set by barista maven set-default); overridden by workspace config.json properties[\"maven.default\"]"
+      "description": "Name of the default maven installation (set by barista maven set-default); overridden by workspace properties.json \"maven.default\""
     },
     "jdk": {
       "type": "string",
       "minLength": 1,
-      "description": "JDK spec used to run maven (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace config.json properties[\"jdk\"]"
+      "description": "JDK spec used to run maven (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace properties.json \"jdk\""
     },
     "installDir": {
       "type": "string",

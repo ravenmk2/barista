@@ -69,11 +69,11 @@ func runResolve(cmd *cobra.Command, arg string, pathOnly bool) {
 	if arg != "" {
 		entry, source, e = reg.Resolve(arg)
 	} else {
-		wsCfg, ok := workspaceConfig(cmd)
+		props, ok := workspaceProperties(cmd)
 		if !ok {
 			return
 		}
-		entry, source, e = resolveEffectiveDefault(reg, effective(reg, wsCfg))
+		entry, source, e = resolveEffectiveDefault(reg, effective(reg, props))
 	}
 	if e != nil {
 		fmt.Fprintf(os.Stderr, "barista: %s: %s\n", e.Code, e.Message)
