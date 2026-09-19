@@ -96,7 +96,7 @@ func printAvailable(results []output.Result, p output.Palette) {
 		if version == "" {
 			version = "-"
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%v\t%s\t%s\n", p.Cyan(res.Name), d["major"], version, tag)
+		_, _ = fmt.Fprintf(w, "%s\t%v\t%s\t%s\n", res.Name, d["major"], version, tag)
 	}
 	_ = w.Flush()
 }
