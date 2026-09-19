@@ -29,19 +29,9 @@ func (r *Repo) Property(key string) (string, bool) {
 }
 
 type ReposFile struct {
-	BaseURL       string         `json:"baseUrl"`
-	DefaultBranch string         `json:"defaultBranch"`
-	Config        map[string]any `json:"config"`
-	Repos         []Repo         `json:"repos"`
-}
-
-func (f *ReposFile) ConfigBool(key string) (bool, bool) {
-	v, ok := f.Config[key]
-	if !ok {
-		return false, false
-	}
-	b, ok := v.(bool)
-	return b, ok
+	BaseURL       string `json:"baseUrl"`
+	DefaultBranch string `json:"defaultBranch"`
+	Repos         []Repo `json:"repos"`
 }
 
 type ConfigFile struct {
@@ -53,6 +43,7 @@ type Workspace struct {
 	Root  string
 	Repos *ReposFile
 	Cfg   ConfigFile
+	Props Properties
 }
 
 func (w *Workspace) AbsPath(repo Repo) string {
@@ -79,6 +70,11 @@ func Load(start string) (*Workspace, error) {
 	if err := ws.loadConfig(); err != nil {
 		return nil, err
 	}
+	props, err := LoadProperties(filepath.Join(root, ".barista", "properties.json"))
+	if err != nil {
+		return nil, err
+	}
+	ws.Props = props
 	return ws, nil
 }
 

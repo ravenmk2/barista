@@ -56,7 +56,7 @@ barista CLI 的完整命令参考。设计契约（分层、输出、退出码�
 
 ### 要点
 
-- `--prune` / `--rebase` 未显式给出时回退 repos.json 顶层 config 的 `fetch.prune` / `pull.rebase`
+- `--prune` / `--rebase` 未显式给出时回退 properties.json 的 `git.fetch.prune` / `git.pull.rebase`
 - checkout 三分支：本地分支已存在 → 切换；`origin/<branch>` 存在 → `checkout --track`；都没有 → 从默认分支创建（`--no-track`）
 - checkout 遇未提交变更（staged/modified）报 skipped `DIRTY_WORKTREE`
 

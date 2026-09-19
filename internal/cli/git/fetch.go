@@ -19,7 +19,7 @@ func fetchCmd() *cobra.Command {
 			execute(cmd, "fetch", func(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo) output.Result {
 				prune, _ := cmd.Flags().GetBool("prune")
 				if !cmd.Flags().Changed("prune") {
-					if v, ok := ws.Repos.ConfigBool("fetch.prune"); ok {
+					if v, ok := ws.Props.Bool("git.fetch.prune"); ok {
 						prune = v
 					}
 				}

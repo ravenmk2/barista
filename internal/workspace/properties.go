@@ -18,6 +18,15 @@ func (p Properties) String(key string) (string, bool) {
 	return s, ok
 }
 
+func (p Properties) Bool(key string) (bool, bool) {
+	v, ok := p[key]
+	if !ok {
+		return false, false
+	}
+	b, ok := v.(bool)
+	return b, ok
+}
+
 func LoadProperties(path string) (Properties, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {

@@ -19,7 +19,7 @@ func pullCmd() *cobra.Command {
 			execute(cmd, "pull", func(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo) output.Result {
 				rebase, _ := cmd.Flags().GetBool("rebase")
 				if !cmd.Flags().Changed("rebase") {
-					if v, ok := ws.Repos.ConfigBool("pull.rebase"); ok {
+					if v, ok := ws.Props.Bool("git.pull.rebase"); ok {
 						rebase = v
 					}
 				}

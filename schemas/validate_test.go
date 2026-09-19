@@ -70,7 +70,7 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "properties scalar values valid",
 			schema:    "properties",
-			doc:       `{"jdk":"17","maven.default":"maven-3.9","threads":4,"offline":true,"future.key":"x"}`,
+			doc:       `{"jdk":"17","maven.default":"maven-3.9","git.fetch.prune":true,"git.pull.rebase":false,"threads":4,"future.key":"x"}`,
 			wantValid: true,
 		},
 		{

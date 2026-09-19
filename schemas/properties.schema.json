@@ -25,6 +25,14 @@
       "type": "string",
       "enum": ["script", "jar"],
       "description": "How barista mvn starts Maven in this workspace: script (wrapper, default) or jar (direct classworlds launch); overridden by --startup and repo properties"
+    },
+    "git.fetch.prune": {
+      "type": "boolean",
+      "description": "Read by barista git fetch when --prune is not passed explicitly; run fetch with --prune"
+    },
+    "git.pull.rebase": {
+      "type": "boolean",
+      "description": "Read by barista git pull when --rebase is not passed explicitly; run pull with --rebase"
     }
   }
 }

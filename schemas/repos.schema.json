@@ -15,21 +15,6 @@
       "type": "string",
       "description": "Fallback default branch for all repos; overridable per repo, usually omittable (resolved via origin/HEAD, then main/master/trunk probe)"
     },
-    "config": {
-      "type": "object",
-      "description": "Behavioral defaults for git operations; overridden by command-line flags",
-      "additionalProperties": true,
-      "properties": {
-        "pull.rebase": {
-          "type": "boolean",
-          "description": "Run git pull with --rebase"
-        },
-        "fetch.prune": {
-          "type": "boolean",
-          "description": "Run git fetch with --prune"
-        }
-      }
-    },
     "repos": {
       "type": "array",
       "items": {

@@ -8,6 +8,69 @@ import (
 	"testing"
 )
 
+func TestPropertiesBool(t *testing.T) {
+	p := Properties{"git.fetch.prune": true, "jdk": "17", "threads": float64(4)}
+	if v, ok := p.Bool("git.fetch.prune"); !ok || !v {
+		t.Errorf("Bool(git.fetch.prune) = %v, %v; want true, true", v, ok)
+	}
+	if _, ok := p.Bool("jdk"); ok {
+		t.Error("string value must report ok=false")
+	}
+	if _, ok := p.Bool("threads"); ok {
+		t.Error("number value must report ok=false")
+	}
+	if _, ok := p.Bool("missing"); ok {
+		t.Error("missing key must report ok=false")
+	}
+	var nilProps Properties
+	if _, ok := nilProps.Bool("git.fetch.prune"); ok {
+		t.Error("nil map must report ok=false")
+	}
+}
+
+func TestLoadIncludesProperties(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".barista")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "repos.json"), []byte(`{"repos":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "properties.json"), []byte(`{"git.fetch.prune":true,"jdk":"17"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := Load(root)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if v, ok := ws.Props.Bool("git.fetch.prune"); !ok || !v {
+		t.Errorf("Bool(git.fetch.prune) = %v, %v; want true, true", v, ok)
+	}
+	if v, _ := ws.Props.String("jdk"); v != "17" {
+		t.Errorf("jdk = %q, want 17", v)
+	}
+}
+
+func TestLoadPropertiesErrorPropagates(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".barista")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "repos.json"), []byte(`{"repos":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "properties.json"), []byte(`{"jdk":["17"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(root)
+	var le *LoadError
+	if !errors.As(err, &le) || le.Code != "CONFIG_ERROR" {
+		t.Fatalf("want CONFIG_ERROR LoadError, got %v", err)
+	}
+}
+
 func TestPropertiesString(t *testing.T) {
 	p := Properties{"jdk": "17", "threads": float64(4), "offline": true}
 	if v, ok := p.String("jdk"); !ok || v != "17" {

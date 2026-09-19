@@ -72,15 +72,15 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 
 - installDir：归属各自 registry 顶层字段（jdk.json / maven.json），由 `barista jdk set-install-dir` / `barista maven set-install-dir` 写入（须为绝对路径，`~` 允许；`--reset` 清空字段恢复内置默认 `~/.barista/toolchains/jdk|maven`）；不参与 workspace 合并。旧 config.json 残留的 `installDir`/`mavenInstallDir` 已废弃，按未知字段宽容忽略
 - config.json 顶层字段只剩 `parallel`/`color`（properties 已拆出为独立文件）
-- `<workspace>/.barista/properties.json`：执行环境偏好 KV map（点分键，Java properties 风格；值允许 string/number/boolean 标量），**仅 workspace 级存在**，user 级无此文件；缺失视为空。当前被读取的键：`jdk`（跨域公用，由 `barista jdk use` 写入）、`maven.default`（由 `barista maven set-default --scope workspace` 写入）、`maven.repo.local`、`maven.startup`；未知键宽容忽略，CLI 写入走 `workspace.SetProperty`（通用 map 读写 + 临时文件 rename 原子写，未知键全保留）
+- `<workspace>/.barista/properties.json`：workspace 级偏好 KV map（点分键，Java properties 风格；值允许 string/number/boolean 标量），**仅 workspace 级存在**，user 级无此文件；缺失视为空。当前被读取的键：`jdk`（跨域公用，由 `barista jdk use` 写入）、`maven.default`（由 `barista maven set-default --scope workspace` 写入）、`maven.repo.local`、`maven.startup`、`git.fetch.prune`/`git.pull.rebase`（由 `barista git fetch`/`git pull` 在未显式传 flag 时读取，手改写入）；未知键宽容忽略，CLI 写入走 `workspace.SetProperty`（通用 map 读写 + 临时文件 rename 原子写，未知键全保留）
 - maven 域偏好分层：user 级唯一来源是 maven.json 的 `default`/`jdk` 字段；workspace 级覆盖放 `<workspace>/.barista/properties.json`——`jdk` 是跨域公用属性键（工具链声明，不限 maven），由 `barista jdk use` 写入，`maven.default` 仍由 `barista maven set-default --scope workspace` 写入。解析链：`--flag > workspace properties > maven.json > 缺省（default 报 MAVEN_NOT_FOUND；jdk 回退环境原样）`。workspace 覆盖解析不到目标时响亮报错，不静默回退
 - `maven.repo.local`：workspace properties.json 键，`barista mvn` 显式设置时注入 `-Dmaven.repo.local`（相对路径锚定 workspace root）；CLI 注入优先级高于 settings.xml 的 `<localRepository>`，两者同设时 property 赢
 - `<workspace>/.barista/maven/`：maven 执行约定目录——`settings.xml` 存在即被 `barista mvn` 以 `-s` 注入（零配置私有 settings），`settings-security.xml` 同理注入 `-Dsettings.security`
 - maven 命令的 workspace 发现是机会主义的（FindRoot 找不到不算错误，仅意味着无 workspace 级覆盖）；**home 目录守卫**：向上找到的 `.barista` 若就是 user 级 `~/.barista`（root == 用户主目录），不视为 workspace——防止把 workspace 偏好写进 user 级文件。守卫实现收敛在 `workspace.FindWorkspaceRoot`，maven 组与 mvn 命令共用
 - workspace level：`<workspace>/.barista/config.json`（与 user level 同 schema，覆盖 user level）
-- `<workspace>/.barista/repos.json`：仓库清单（事实）+ `config` map（git 操作行为默认值）；repo 条目另有 `properties` map（string→string，点分域前缀键），承载 **per-repo 覆盖**——当前被读取的键：`jdk`（工具链声明，不限 maven；cwd 命中 repo 时优先于 workspace jdk）、`maven.startup`（jar|script，同理）；未知键宽容忽略，其他域可复用同一容器
-- 优先级（低→高）：内置默认 → user level → workspace level → repo properties（per-repo 值）→ repos.json config（git 行为默认值，全 repo 统一）→ 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
-- 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**行为偏好**（pull.rebase、fetch.prune）放 config map。拿不准时按此规则裁决
+- `<workspace>/.barista/repos.json`：仓库清单（纯事实：baseUrl、defaultBranch、repos）；repo 条目另有 `properties` map（string→string），承载 **per-repo 覆盖**——当前被读取的键：`jdk`（工具链声明，不限 maven；cwd 命中 repo 时优先于 workspace jdk）、`maven.startup`（jar|script，同理）；未知键宽容忽略，其他域可复用同一容器
+- 优先级（低→高）：内置默认 → user level → workspace level（config.json + properties.json，含 git.* 键）→ repo properties（per-repo 值）→ 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
+- 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**workspace 级行为/环境偏好**（`git.fetch.prune`、`jdk`、`maven.*` 等）放 properties.json。拿不准时按此规则裁决。键命名约定：跨域工具链声明用裸名（`jdk`），域专属偏好用点分前缀（`maven.*`、`git.*`）
 - 所有层级对未知字段宽容（忽略）
 
 ## 行为规则
