@@ -38,6 +38,9 @@ func NewCmd(exit *int, version string) *cobra.Command {
 			exe, _ = filepath.EvalSymlinks(exe)
 			upgrade.CleanupStale(exe)
 
+			if quiet, _ := cmd.Flags().GetBool("json"); !quiet && output.StderrIsTerminal() {
+				fmt.Fprintf(os.Stderr, "%s\n", palette().Dim("checking the latest release..."))
+			}
 			m, e := upgrade.FetchManifest(cmd.Context(), upgrade.DefaultBaseURL)
 			if e != nil {
 				failResult(cmd, e)
@@ -113,7 +116,7 @@ func confirmUpgrade(cmd *cobra.Command, current, latest, exe string) bool {
 		})
 		return false
 	}
-	p := output.NewPalette(output.ColorEnabled(""))
+	p := palette()
 	fmt.Fprintf(os.Stderr, "upgrade %s → %s, replacing %s? [y/N] ", p.Cyan(current), p.Cyan(latest), filepath.ToSlash(exe))
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	return strings.EqualFold(strings.TrimSpace(line), "y") || strings.EqualFold(strings.TrimSpace(line), "yes")
@@ -140,7 +143,7 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 		},
 		OnRetry: func(attempt int, err error) {
 			if showProgress {
-				fmt.Fprintf(os.Stderr, "\nretry %d: %v\n", attempt, err)
+				fmt.Fprintf(os.Stderr, "\n%s\n", palette().Yellow(fmt.Sprintf("retry %d: %v", attempt, err)))
 			}
 		},
 	})
@@ -166,17 +169,15 @@ func emit(cmd *cobra.Command, res output.Result) {
 		_ = output.WriteJSON(os.Stdout, output.NewEnvelope(commandName(cmd), "", []output.Result{res}))
 		return
 	}
-	cfg, err := workspace.LoadUserConfig()
-	color := err == nil && output.ColorEnabled(cfg.Color)
-	p := output.NewPalette(color)
+	p := palette()
 	switch res.Status {
 	case output.StatusOK:
 		if res.Detail["checkOnly"] == true {
-			fmt.Printf("%s %s → %s available (%s)\n", p.Green("update available:"), res.Detail["current"], p.Cyan(fmt.Sprint(res.Detail["latest"])), filepath.ToSlash(res.Path))
+			fmt.Printf("%s %s → %s (%s)\n", p.YellowBold("update available:"), res.Detail["current"], p.Cyan(fmt.Sprint(res.Detail["latest"])), p.Dim(filepath.ToSlash(res.Path)))
 		} else if reason, ok := res.Detail["reason"].(string); ok {
 			fmt.Printf("%s barista %s (%s)\n", p.Green("up to date:"), res.Detail["latest"], p.Dim(reason))
 		} else {
-			fmt.Printf("%s %s → %s\n", p.Green("upgraded"), res.Detail["current"], p.Cyan(fmt.Sprint(res.Detail["latest"])))
+			fmt.Printf("%s %s → %s\n", p.Green("upgraded:"), res.Detail["current"], p.Cyan(fmt.Sprint(res.Detail["latest"])))
 		}
 	case output.StatusSkipped:
 		fmt.Println(p.Dim("aborted"))
@@ -184,14 +185,23 @@ func emit(cmd *cobra.Command, res output.Result) {
 }
 
 func failResult(cmd *cobra.Command, e *output.ErrInfo) {
-	fmt.Fprintf(os.Stderr, "barista: %s: %s\n", e.Code, e.Message)
+	p := palette()
+	fmt.Fprintf(os.Stderr, "%s %s\n", p.Red("barista: "+e.Code+":"), e.Message)
 	if e.Hint != "" {
-		fmt.Fprintf(os.Stderr, "hint: %s\n", e.Hint)
+		fmt.Fprintf(os.Stderr, "%s %s\n", p.Yellow("hint:"), e.Hint)
 	}
 	if jsonOut, _ := cmd.Flags().GetBool("json"); jsonOut {
 		_ = output.WriteJSON(os.Stdout, output.ErrorEnvelope(commandName(cmd), e))
 	}
 	*exitCode = 1
+}
+
+func palette() output.Palette {
+	cfg, err := workspace.LoadUserConfig()
+	if err != nil {
+		return output.NewPalette(false)
+	}
+	return output.NewPalette(output.ColorEnabled(cfg.Color))
 }
 
 func fail(cmd *cobra.Command, e *output.ErrInfo) {
