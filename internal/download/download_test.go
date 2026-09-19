@@ -16,7 +16,7 @@ import (
 func TestDownload(t *testing.T) {
 	body := strings.Repeat("barista", 1000)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Length", "5000")
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		_, _ = w.Write([]byte(body))
 	}))
 	defer srv.Close()
@@ -35,8 +35,8 @@ func TestDownload(t *testing.T) {
 	if err != nil || string(data) != body {
 		t.Fatalf("content mismatch: %v", err)
 	}
-	if lastReceived != int64(len(body)) || lastTotal != 5000 {
-		t.Errorf("progress = %d/%d, want %d/5000", lastReceived, lastTotal, len(body))
+	if lastReceived != int64(len(body)) || lastTotal != int64(len(body)) {
+		t.Errorf("progress = %d/%d, want %d/%d", lastReceived, lastTotal, len(body), len(body))
 	}
 }
 
