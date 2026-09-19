@@ -20,6 +20,7 @@ type Provider interface {
 var providers = map[string]Provider{
 	"temurin":   temurinProvider{},
 	"microsoft": microsoftProvider{},
+	"corretto":  correttoProvider{},
 }
 
 func ProviderFor(distro string) (Provider, bool) {

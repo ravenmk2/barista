@@ -160,7 +160,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 | ---------------------------- | ----------------------------------------------------------- |
 | `discover`                   | 扫描 JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 并注册 |
 | `add <name> <path>`          | 注册已安装的 JDK（起 `java` 探测版本与发行版；`javac` 仅做存在性检查） |
-| `install <distro><major>`    | 下载并安装到托管目录（temurin 走 Adoptium API；microsoft 为 permalink 直链） |
+| `install <distro><major>`    | 下载并安装到托管目录（temurin 走 Adoptium API；microsoft / corretto 为 permalink 直链） |
 | `available`                  | 列出远端可安装的 JDK（major / 最新版本 / LTS / 是否已装）   |
 | `list`                       | 列出已注册 JDK（别名 `ls`）                                 |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
