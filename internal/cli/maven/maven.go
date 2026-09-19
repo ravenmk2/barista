@@ -191,7 +191,7 @@ func effective(reg *maven.Registry, wsCfg workspace.ConfigFile) effectiveSetting
 	} else if reg.Default != "" {
 		eff.Default, eff.DefaultSource = reg.Default, "user"
 	}
-	if v, ok := wsCfg.Property("maven.jdk"); ok && v != "" {
+	if v, ok := wsCfg.Property("jdk"); ok && v != "" {
 		eff.Jdk, eff.JdkSource = v, "workspace"
 	} else if reg.Jdk != "" {
 		eff.Jdk, eff.JdkSource = reg.Jdk, "user"

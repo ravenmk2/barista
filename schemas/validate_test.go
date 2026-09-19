@@ -70,13 +70,13 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "config properties valid",
 			schema:    "config",
-			doc:       `{"properties":{"maven.jdk":"17","maven.default":"maven-3.9","future.key":4}}`,
+			doc:       `{"properties":{"jdk":"17","maven.default":"maven-3.9","future.key":4}}`,
 			wantValid: true,
 		},
 		{
 			name:      "config properties wrong type",
 			schema:    "config",
-			doc:       `{"properties":"maven.jdk=17"}`,
+			doc:       `{"properties":"jdk=17"}`,
 			wantPaths: []string{"properties"},
 		},
 		{

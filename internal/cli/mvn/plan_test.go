@@ -43,8 +43,8 @@ func wsInput(t *testing.T) planInput {
 func TestPlanJdkPriority(t *testing.T) {
 	withAll := func(in planInput) planInput {
 		in.jdkFlag = "8"
-		in.repos[0].Properties = map[string]string{"maven.jdk": "17"}
-		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"maven.jdk": "temurin17"}}
+		in.repos[0].Properties = map[string]string{"jdk": "17"}
+		in.wsCfg = workspace.ConfigFile{Properties: map[string]any{"jdk": "temurin17"}}
 		in.mavenReg.Jdk = "temurin8"
 		return in
 	}
@@ -112,7 +112,7 @@ func TestPlanJdkPriority(t *testing.T) {
 
 func TestPlanJdkUnregistered(t *testing.T) {
 	in := wsInput(t)
-	in.repos[0].Properties = map[string]string{"maven.jdk": "21"}
+	in.repos[0].Properties = map[string]string{"jdk": "21"}
 	_, e := planExec(in)
 	if e == nil {
 		t.Fatal("want error")
@@ -347,7 +347,7 @@ func TestPlanNestedRepoWins(t *testing.T) {
 	in.repos = append(in.repos, workspace.Repo{
 		Name:       "nested",
 		Path:       "repos/app/modules/nested",
-		Properties: map[string]string{"maven.jdk": "8"},
+		Properties: map[string]string{"jdk": "8"},
 	})
 	in.cwd = filepath.Join(in.wsRoot, "repos", "app", "modules", "nested", "src")
 	p, e := planExec(in)

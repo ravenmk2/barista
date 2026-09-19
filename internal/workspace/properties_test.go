@@ -9,11 +9,11 @@ import (
 
 func TestProperty(t *testing.T) {
 	cf := ConfigFile{Properties: map[string]any{
-		"maven.jdk":     "17",
+		"jdk":           "17",
 		"maven.threads": 4,
 	}}
-	if v, ok := cf.Property("maven.jdk"); !ok || v != "17" {
-		t.Errorf("Property(maven.jdk) = %q, %v; want 17, true", v, ok)
+	if v, ok := cf.Property("jdk"); !ok || v != "17" {
+		t.Errorf("Property(jdk) = %q, %v; want 17, true", v, ok)
 	}
 	if _, ok := cf.Property("maven.threads"); ok {
 		t.Error("non-string property must report ok=false")
@@ -21,22 +21,22 @@ func TestProperty(t *testing.T) {
 	if _, ok := cf.Property("missing"); ok {
 		t.Error("missing property must report ok=false")
 	}
-	if _, ok := (ConfigFile{}).Property("maven.jdk"); ok {
+	if _, ok := (ConfigFile{}).Property("jdk"); ok {
 		t.Error("nil properties map must report ok=false")
 	}
 }
 
 func TestSetConfigPropertyCreate(t *testing.T) {
 	p := filepath.Join(t.TempDir(), ".barista", "config.json")
-	if err := SetConfigProperty(p, "maven.jdk", "17"); err != nil {
+	if err := SetConfigProperty(p, "jdk", "17"); err != nil {
 		t.Fatalf("SetConfigProperty: %v", err)
 	}
 	cf, err := LoadConfigFile(p)
 	if err != nil {
 		t.Fatalf("LoadConfigFile: %v", err)
 	}
-	if v, ok := cf.Property("maven.jdk"); !ok || v != "17" {
-		t.Errorf("Property(maven.jdk) = %q, %v; want 17, true", v, ok)
+	if v, ok := cf.Property("jdk"); !ok || v != "17" {
+		t.Errorf("Property(jdk) = %q, %v; want 17, true", v, ok)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestSetConfigPropertyPreservesUnknownFields(t *testing.T) {
 	if err := os.WriteFile(p, []byte(doc), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetConfigProperty(p, "maven.jdk", "8"); err != nil {
+	if err := SetConfigProperty(p, "jdk", "8"); err != nil {
 		t.Fatalf("SetConfigProperty: %v", err)
 	}
 	data, err := os.ReadFile(p)
@@ -65,8 +65,8 @@ func TestSetConfigPropertyPreservesUnknownFields(t *testing.T) {
 	if cf.Parallel != 4 {
 		t.Errorf("parallel lost: %d", cf.Parallel)
 	}
-	if v, _ := cf.Property("maven.jdk"); v != "8" {
-		t.Errorf("maven.jdk = %q, want 8", v)
+	if v, _ := cf.Property("jdk"); v != "8" {
+		t.Errorf("jdk = %q, want 8", v)
 	}
 	if v, _ := cf.Property("maven.default"); v != "maven-3.9" {
 		t.Errorf("maven.default = %q, want maven-3.9", v)
@@ -89,7 +89,7 @@ func TestSetConfigPropertyInvalidJSON(t *testing.T) {
 	if err := os.WriteFile(p, []byte(`{broken`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetConfigProperty(p, "maven.jdk", "8"); err == nil {
+	if err := SetConfigProperty(p, "jdk", "8"); err == nil {
 		t.Error("want error for invalid existing config.json")
 	}
 }

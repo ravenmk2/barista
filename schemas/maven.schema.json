@@ -46,7 +46,7 @@
     "jdk": {
       "type": "string",
       "minLength": 1,
-      "description": "JDK spec used to run maven (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace config.json properties[\"maven.jdk\"]"
+      "description": "JDK spec used to run maven (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace config.json properties[\"jdk\"]"
     },
     "installDir": {
       "type": "string",

@@ -162,12 +162,12 @@ func resolveMaven(in planInput) (*maven.Entry, string, *output.ErrInfo) {
 func resolveJdk(in planInput, repo *workspace.Repo) (*jdk.Entry, string, string, *output.ErrInfo) {
 	spec, src := in.jdkFlag, "flag"
 	if spec == "" && repo != nil {
-		if v, ok := repo.Property("maven.jdk"); ok && v != "" {
+		if v, ok := repo.Property("jdk"); ok && v != "" {
 			spec, src = v, "repo"
 		}
 	}
 	if spec == "" {
-		if v, ok := in.wsCfg.Property("maven.jdk"); ok && v != "" {
+		if v, ok := in.wsCfg.Property("jdk"); ok && v != "" {
 			spec, src = v, "workspace"
 		}
 	}

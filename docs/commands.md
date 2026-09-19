@@ -67,7 +67,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 
 ## jdk — JDK 注册表管理
 
-注册表为 user 级 `~/.barista/jdk.json`，命令不依赖工作区。托管安装目录默认 `~/.barista/toolchains/jdk/`（jdk.json 顶层 `installDir` 字段，用 `barista jdk set-install-dir` 设置）。
+注册表为 user 级 `~/.barista/jdk.json`。托管安装目录默认 `~/.barista/toolchains/jdk/`（jdk.json 顶层 `installDir` 字段，用 `barista jdk set-install-dir` 设置）。`use` 是 jdk 组唯一需要工作区的命令。
 
 ### 子命令
 
@@ -81,6 +81,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
 | `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
+| `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace config.json `properties["jdk"]`） |
 | `remove <name>`              | 仅注销，保留磁盘文件                                        |
 | `uninstall <name>`           | 删除 managed 安装并注销（级联清理 defaults）                |
 
@@ -102,7 +103,7 @@ barista jdk which 17
 
 ## maven — Maven 注册表管理
 
-注册表为 user 级 `~/.barista/maven.json`。托管安装目录默认 `~/.barista/toolchains/maven/`（maven.json 顶层 `installDir` 字段，用 `barista maven set-install-dir` 设置）。`set-default` / `set-jdk` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/config.json` 的 properties）。
+注册表为 user 级 `~/.barista/maven.json`。托管安装目录默认 `~/.barista/toolchains/maven/`（maven.json 顶层 `installDir` 字段，用 `barista maven set-install-dir` 设置）。`set-default` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/config.json` 的 properties）；`set-jdk` 只写 user 级（workspace 级 JDK 用 `barista jdk use`）。
 
 ### 子命令
 
@@ -115,7 +116,7 @@ barista jdk which 17
 | `which [name\|version]` | 按名或版本解析（版本逐级放宽）；不传参数取生效默认（恒输出 JSON）      |
 | `path` / `home`         | 只打印 maven home 路径（`which --pathonly` 的快捷方式）                |
 | `set-default <name>`    | 设置默认 Maven（`--scope` 选择写入层级）                               |
-| `set-jdk <major\|name>` | 设置运行 Maven 的 JDK（按 jdk 注册表解析，`--scope` 选择写入层级）     |
+| `set-jdk <major\|name>` | 设置运行 Maven 的 JDK（按 jdk 注册表解析，写 user maven.json）         |
 | `set-install-dir <path>` | 设置托管安装根目录（写入 maven.json `installDir`；`--reset` 恢复内置默认） |
 | `config`                | 查看生效配置（default / jdk / installDir 及 workspace 级项）及其来源   |
 | `remove <name>`         | 仅注销，保留磁盘文件                                                   |
@@ -126,14 +127,14 @@ barista jdk which 17
 - add：`--name` 指定注册名（默认 `maven-<major.minor>`，冲突自动追加序号）；`--default` 同时设为默认
 - install：解压后 probe 校验版本与请求完全一致，失败清理目录
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
-- 生效优先级：`maven.default` / `maven.jdk` 的 workspace 配置覆盖 user 注册表字段
-- set-jdk：`--scope workspace` 写入 properties 的是用户给的原始 spec（如 `17`），而非解析后的注册名
+- 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
+- set-jdk：只写 user 级 maven.json，写入的是用户给的原始 spec（如 `17`），而非解析后的注册名；workspace 级覆盖用 `barista jdk use`
 - remove/uninstall 契约与 jdk 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通
 
 ```bash
 barista maven install 3.9.9
 barista maven set-default maven-3.9
-barista maven set-jdk 17 --scope workspace
+barista jdk use 17
 barista maven config
 ```
 
@@ -156,7 +157,7 @@ barista mvn [flags] -- <mvn args...>
 ### 解析链（高 → 低）
 
 - Maven 安装：workspace `maven.default` > user maven.json default（无 repo 级）
-- JDK：`--jdk` > repo `properties["maven.jdk"]` > workspace `maven.jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
+- JDK：`--jdk` > repo `properties["jdk"]` > workspace `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
 - settings.xml：存在 `.barista/maven/settings.xml` 时注入 `-s`（自行传 `-s`/`--settings` 则跳过）；同目录 `settings-security.xml` 存在时配套注入 `-Dsettings.security`（自行传 `-s`/`--settings` 或 `-Dsettings.security` 则跳过）
 - 本地仓库：workspace `maven.repo.local` 注入 `-Dmaven.repo.local`（自行传则跳过）；相对路径基于 workspace 根，支持 `~` 展开
 - startup：`--startup` > repo `maven.startup` > workspace `maven.startup` > `script`

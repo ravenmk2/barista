@@ -20,13 +20,13 @@
     },
     "properties": {
       "type": "object",
-      "description": "Free-form domain extension settings keyed by dotted names; maven.* keys are consulted at workspace level only",
+      "description": "Free-form domain extension settings keyed by dotted names; jdk and maven.* keys are consulted at workspace level only",
       "additionalProperties": true,
       "properties": {
-        "maven.jdk": {
+        "jdk": {
           "type": "string",
           "minLength": 1,
-          "description": "Workspace override of the JDK spec used to run maven (overrides ~/.barista/maven.json jdk); workspace level only"
+          "description": "JDK spec for this workspace (major like \"17\" or a jdk registry name; set by barista jdk use; overrides ~/.barista/maven.json jdk)"
         },
         "maven.default": {
           "type": "string",

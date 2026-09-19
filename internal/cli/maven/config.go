@@ -55,7 +55,7 @@ func configCmd() *cobra.Command {
 				}
 				if repo := ws.MatchRepo(cwd); repo != nil {
 					detail["repo"] = map[string]any{"name": repo.Name, "path": filepath.ToSlash(repo.Path)}
-					if v, ok := repo.Property("maven.jdk"); ok && v != "" {
+					if v, ok := repo.Property("jdk"); ok && v != "" {
 						jdkSpec, jdkSrc = v, "repo"
 					}
 				} else {

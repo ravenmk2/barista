@@ -64,7 +64,7 @@
           },
           "properties": {
             "type": "object",
-            "description": "Per-repo overrides, dotted domain-prefixed keys (e.g. \"maven.jdk\": JDK spec used by barista mvn inside this repo); unknown keys are ignored",
+            "description": "Per-repo overrides, dotted domain-prefixed keys (e.g. \"jdk\": JDK spec used by executors like barista mvn inside this repo); unknown keys are ignored",
             "additionalProperties": { "type": "string" }
           }
         }

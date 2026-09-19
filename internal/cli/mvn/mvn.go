@@ -27,7 +27,7 @@ func NewCmd(exit *int) *cobra.Command {
 		Short:                 "Run Maven with the workspace-aware JDK, settings.xml and local repo",
 		DisableFlagsInUseLine: true,
 		Long: "Run Maven in the current directory. Arguments after \"--\" are passed through verbatim.\n" +
-			"Resolution (high to low): JDK: --jdk > repo properties[\"maven.jdk\"] > workspace maven.jdk > user maven.json jdk > ambient.\n" +
+			"Resolution (high to low): JDK: --jdk > repo properties[\"jdk\"] > workspace jdk > user maven.json jdk > ambient.\n" +
 			"settings.xml: .barista/maven/settings.xml is injected as -s when present (skipped when you pass -s yourself).\n" +
 			"maven.repo.local: workspace property injected as -Dmaven.repo.local (skipped when you pass it yourself).\n" +
 			"startup: script (default) runs the bundled mvn/mvn.cmd wrapper; jar boots the classworlds jar with java directly,\n" +
