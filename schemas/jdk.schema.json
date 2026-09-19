@@ -48,6 +48,11 @@
       "description": "Default JDK name per major version",
       "propertyNames": { "pattern": "^[1-9][0-9]*$" },
       "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "installDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Install root for barista jdk install (set by barista jdk set-install-dir); must be an absolute path (~ allowed); default is the builtin ~/.barista/toolchains/jdk"
     }
   }
 }

@@ -21,7 +21,7 @@ func uninstallCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
-			cfg, p, ok := userSettings(cmd)
+			_, p, ok := userSettings(cmd)
 			if !ok {
 				return nil
 			}
@@ -53,7 +53,7 @@ func uninstallCmd() *cobra.Command {
 				})
 				return nil
 			}
-			root, err := jdk.InstallDir(cfg.InstallDir)
+			root, err := jdk.InstallDir(reg.InstallDir)
 			if err != nil {
 				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
 				return nil

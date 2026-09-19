@@ -67,7 +67,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 
 ## jdk — JDK 注册表管理
 
-注册表为 user 级 `~/.barista/jdk.json`，命令不依赖工作区。托管安装目录默认 `~/.barista/toolchains/jdk/`（可用 config 的 `installDir` 覆盖）。
+注册表为 user 级 `~/.barista/jdk.json`，命令不依赖工作区。托管安装目录默认 `~/.barista/toolchains/jdk/`（jdk.json 顶层 `installDir` 字段，用 `barista jdk set-install-dir` 设置）。
 
 ### 子命令
 
@@ -80,6 +80,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
+| `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
 | `remove <name>`              | 仅注销，保留磁盘文件                                        |
 | `uninstall <name>`           | 删除 managed 安装并注销（级联清理 defaults）                |
 
@@ -101,7 +102,7 @@ barista jdk which 17
 
 ## maven — Maven 注册表管理
 
-注册表为 user 级 `~/.barista/maven.json`。`set-default` / `set-jdk` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/config.json` 的 properties）。
+注册表为 user 级 `~/.barista/maven.json`。托管安装目录默认 `~/.barista/toolchains/maven/`（maven.json 顶层 `installDir` 字段，用 `barista maven set-install-dir` 设置）。`set-default` / `set-jdk` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/config.json` 的 properties）。
 
 ### 子命令
 
@@ -115,6 +116,7 @@ barista jdk which 17
 | `path` / `home`         | 只打印 maven home 路径（`which --pathonly` 的快捷方式）                |
 | `set-default <name>`    | 设置默认 Maven（`--scope` 选择写入层级）                               |
 | `set-jdk <major\|name>` | 设置运行 Maven 的 JDK（按 jdk 注册表解析，`--scope` 选择写入层级）     |
+| `set-install-dir <path>` | 设置托管安装根目录（写入 maven.json `installDir`；`--reset` 恢复内置默认） |
 | `config`                | 查看生效配置（default / jdk / installDir 及 workspace 级项）及其来源   |
 | `remove <name>`         | 仅注销，保留磁盘文件                                                   |
 | `uninstall <name>`      | 删除 managed 安装并注销                                                |

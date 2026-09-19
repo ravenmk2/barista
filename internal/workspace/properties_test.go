@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -95,17 +94,12 @@ func TestSetConfigPropertyInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestMavenInstallDirValidation(t *testing.T) {
-	if _, err := parseConfig([]byte(`{"mavenInstallDir":"relative/dir"}`), "test"); err == nil {
-		t.Error("relative mavenInstallDir must error")
+func TestUnknownFieldsIgnored(t *testing.T) {
+	cf, err := parseConfig([]byte(`{"installDir":"relative/dir","mavenInstallDir":"also/relative"}`), "test")
+	if err != nil {
+		t.Fatalf("legacy installDir fields must be tolerated as unknown fields: %v", err)
 	}
-	abs := "/abs/dir"
-	if runtime.GOOS == "windows" {
-		abs = `C:\abs\dir`
-	}
-	doc, _ := json.Marshal(map[string]string{"mavenInstallDir": abs})
-	cf, err := parseConfig(doc, "test")
-	if err != nil || cf.MavenInstallDir != abs {
-		t.Errorf("absolute mavenInstallDir = %q, %v", cf.MavenInstallDir, err)
+	if cf.Parallel != 0 || cf.Color != "" || len(cf.Properties) != 0 {
+		t.Errorf("unexpected config: %+v", cf)
 	}
 }

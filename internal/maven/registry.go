@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"barista/internal/output"
 )
@@ -21,6 +22,7 @@ type Registry struct {
 	Installations []Entry `json:"installations"`
 	Default       string  `json:"default,omitempty"`
 	Jdk           string  `json:"jdk,omitempty"`
+	InstallDir    string  `json:"installDir,omitempty"`
 }
 
 var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
@@ -48,6 +50,12 @@ func Load(path string) (*Registry, *output.ErrInfo) {
 	}
 	if err := json.Unmarshal(data, reg); err != nil {
 		return nil, configError("invalid %s: %v", filepath.ToSlash(path), err)
+	}
+	if reg.InstallDir != "" {
+		reg.InstallDir = expandHome(reg.InstallDir)
+		if !filepath.IsAbs(reg.InstallDir) {
+			return nil, configError("%s: installDir must be an absolute path (~ allowed)", filepath.ToSlash(path))
+		}
 	}
 	seen := make(map[string]bool)
 	for i := range reg.Installations {
@@ -171,6 +179,20 @@ func (r *Registry) AvailableName(base string) string {
 			return name
 		}
 	}
+}
+
+func expandHome(p string) string {
+	if p != "~" && !strings.HasPrefix(p, "~/") && !strings.HasPrefix(p, `~\`) {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	if p == "~" {
+		return home
+	}
+	return filepath.Join(home, p[2:])
 }
 
 func configError(format string, args ...any) *output.ErrInfo {

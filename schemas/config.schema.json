@@ -18,16 +18,6 @@
       "default": "auto",
       "description": "Color output mode; NO_COLOR env var takes precedence over everything"
     },
-    "installDir": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Install root for barista jdk install (default ~/.barista/toolchains/jdk); user level only, must be an absolute path (~ allowed)"
-    },
-    "mavenInstallDir": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Install root for barista maven install (default ~/.barista/toolchains/maven); user level only, must be an absolute path (~ allowed)"
-    },
     "properties": {
       "type": "object",
       "description": "Free-form domain extension settings keyed by dotted names; maven.* keys are consulted at workspace level only",

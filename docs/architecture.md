@@ -63,15 +63,15 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 ```txt
 ~/.barista/
   config.json          用户配置（不存在合法，语法错误报 CONFIG_ERROR）
-  jdk.json             JDK registry（jdks 数组 + defaults major→name；不存在视为空注册表；临时文件 + rename 原子写）
-  maven.json           Maven registry（installations 数组 + default + jdk；不存在视为空注册表；原子写同上）
+  jdk.json             JDK registry（jdks 数组 + defaults major→name + installDir；不存在视为空注册表；临时文件 + rename 原子写）
+  maven.json           Maven registry（installations 数组 + default + jdk + installDir；不存在视为空注册表；原子写同上）
   toolchains/          barista 托管安装的工具链（仅 install 产物；add/discover 注册的可在任意路径）
-    jdk/<name>/        barista jdk install 安装根（JDK 域默认 installDir）
-    maven/<name>/      barista maven install 安装根（Maven 域默认 mavenInstallDir）
+    jdk/<name>/        barista jdk install 安装根（JDK 域缺省 installDir）
+    maven/<name>/      barista maven install 安装根（Maven 域缺省 installDir）
 ```
 
-- config.json `installDir`：`barista jdk install` 的安装根目录（默认 `~/.barista/toolchains/jdk`），仅 user level 生效，不参与 workspace 合并
-- config.json `mavenInstallDir`：`barista maven install` 的安装根目录（默认 `~/.barista/toolchains/maven`），同上仅 user level
+- installDir：归属各自 registry 顶层字段（jdk.json / maven.json），由 `barista jdk set-install-dir` / `barista maven set-install-dir` 写入（须为绝对路径，`~` 允许；`--reset` 清空字段恢复内置默认 `~/.barista/toolchains/jdk|maven`）；不参与 workspace 合并。旧 config.json 残留的 `installDir`/`mavenInstallDir` 已废弃，按未知字段宽容忽略
+- config.json 顶层字段只剩 `parallel`/`color`/`properties`
 - config.json `properties`：自由 KV map（点分键，Java properties 风格）。`maven.*` 键仅 workspace level 被读取（user level 写了也忽略）；写入走 `workspace.SetConfigProperty`（通用 map 读写，未知字段全保留）
 - maven 域偏好分层：user 级唯一来源是 maven.json 的 `default`/`jdk` 字段；workspace 级覆盖放 `<workspace>/.barista/config.json` 的 `properties["maven.default"]` / `properties["maven.jdk"]`，由 `barista maven set-default/set-jdk --scope workspace` 写入。解析链：`--flag > workspace properties > maven.json > 缺省（default 报 MAVEN_NOT_FOUND；jdk 回退环境原样）`。workspace 覆盖解析不到目标时响亮报错，不静默回退
 - `maven.repo.local`：workspace properties 键，`barista mvn` 显式设置时注入 `-Dmaven.repo.local`（相对路径锚定 workspace root）；CLI 注入优先级高于 settings.xml 的 `<localRepository>`，两者同设时 property 赢

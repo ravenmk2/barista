@@ -1,8 +1,10 @@
 package maven
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"barista/internal/output"
@@ -24,9 +26,49 @@ func TestLoadMissingIsEmpty(t *testing.T) {
 	if e != nil {
 		t.Fatalf("Load: %v", e)
 	}
-	if len(reg.Installations) != 0 || reg.Default != "" || reg.Jdk != "" {
+	if len(reg.Installations) != 0 || reg.Default != "" || reg.Jdk != "" || reg.InstallDir != "" {
 		t.Errorf("want empty registry, got %+v", reg)
 	}
+}
+
+func TestLoadInstallDir(t *testing.T) {
+	abs := "/opt/mavens"
+	if runtime.GOOS == "windows" {
+		abs = `C:\mavens`
+	}
+	write := func(doc []byte) string {
+		p := filepath.Join(t.TempDir(), "maven.json")
+		if err := os.WriteFile(p, doc, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	t.Run("relative path errors", func(t *testing.T) {
+		_, e := Load(write([]byte(`{"installDir":"relative/dir"}`)))
+		if e == nil || e.Code != output.CodeConfigError {
+			t.Fatalf("want CONFIG_ERROR, got %+v", e)
+		}
+	})
+	t.Run("absolute path ok", func(t *testing.T) {
+		doc, _ := json.Marshal(map[string]string{"installDir": abs})
+		reg, e := Load(write(doc))
+		if e != nil || reg.InstallDir != abs {
+			t.Errorf("Load: %+v, %v", reg, e)
+		}
+	})
+	t.Run("tilde expands", func(t *testing.T) {
+		reg, e := Load(write([]byte(`{"installDir":"~/mavens"}`)))
+		if e != nil {
+			t.Fatalf("Load: %v", e)
+		}
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Skip("no home dir")
+		}
+		if want := filepath.Join(home, "mavens"); reg.InstallDir != want {
+			t.Errorf("InstallDir = %q, want %q", reg.InstallDir, want)
+		}
+	})
 }
 
 func TestLoadValidation(t *testing.T) {

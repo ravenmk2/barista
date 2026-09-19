@@ -40,7 +40,7 @@ barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
 
 ## 配置
 
-两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`installDir`、`mavenInstallDir`、`properties`）：
+两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`properties`）：
 
 | 级别      | 路径                                          |
 | --------- | --------------------------------------------- |

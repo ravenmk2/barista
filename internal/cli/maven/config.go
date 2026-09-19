@@ -21,7 +21,7 @@ func configCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			*exitCode = 0
-			cfg, p, ok := userSettings(cmd)
+			_, p, ok := userSettings(cmd)
 			if !ok {
 				return nil
 			}
@@ -110,13 +110,13 @@ func configCmd() *cobra.Command {
 				detail["jdk"] = j
 			}
 
-			installDir, err := maven.InstallDir(cfg.MavenInstallDir)
+			installDir, err := maven.InstallDir(reg.InstallDir)
 			if err != nil {
 				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
 				return nil
 			}
 			installSrc := "builtin"
-			if cfg.MavenInstallDir != "" {
+			if reg.InstallDir != "" {
 				installSrc = "user"
 			}
 			detail["installDir"] = map[string]any{"value": filepath.ToSlash(installDir), "source": installSrc}
@@ -190,7 +190,7 @@ func printConfig(detail map[string]any, p output.Palette) {
 	}
 
 	inst := detail["installDir"].(map[string]any)
-	_, _ = fmt.Fprintf(w, "installDir\t%v\t%s\n", inst["value"], sourceLabel(inst, "config.json"))
+	_, _ = fmt.Fprintf(w, "installDir\t%v\t%s\n", inst["value"], sourceLabel(inst, "maven.json"))
 	_ = w.Flush()
 }
 

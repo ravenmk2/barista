@@ -33,7 +33,7 @@
           "managed": {
             "type": "boolean",
             "default": false,
-            "description": "True when installed by barista maven install (under mavenInstallDir); eligible for barista maven uninstall"
+            "description": "True when installed by barista maven install (under installDir); eligible for barista maven uninstall"
           }
         }
       }
@@ -47,6 +47,11 @@
       "type": "string",
       "minLength": 1,
       "description": "JDK spec used to run maven (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace config.json properties[\"maven.jdk\"]"
+    },
+    "installDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Install root for barista maven install (set by barista maven set-install-dir); must be an absolute path (~ allowed); default is the builtin ~/.barista/toolchains/maven"
     }
   }
 }

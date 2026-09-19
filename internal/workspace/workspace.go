@@ -45,11 +45,9 @@ func (f *ReposFile) ConfigBool(key string) (bool, bool) {
 }
 
 type ConfigFile struct {
-	Parallel        int            `json:"parallel"`
-	Color           string         `json:"color"`
-	InstallDir      string         `json:"installDir"`
-	MavenInstallDir string         `json:"mavenInstallDir"`
-	Properties      map[string]any `json:"properties"`
+	Parallel   int            `json:"parallel"`
+	Color      string         `json:"color"`
+	Properties map[string]any `json:"properties"`
 }
 
 func (f ConfigFile) Property(key string) (string, bool) {
@@ -254,18 +252,6 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 	}
 	if cf.Parallel < 0 {
 		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: parallel must be >= 0", source)}
-	}
-	if cf.InstallDir != "" {
-		cf.InstallDir = ExpandHome(cf.InstallDir)
-		if !filepath.IsAbs(cf.InstallDir) {
-			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: installDir must be an absolute path (~ allowed)", source)}
-		}
-	}
-	if cf.MavenInstallDir != "" {
-		cf.MavenInstallDir = ExpandHome(cf.MavenInstallDir)
-		if !filepath.IsAbs(cf.MavenInstallDir) {
-			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: mavenInstallDir must be an absolute path (~ allowed)", source)}
-		}
 	}
 	return cf, nil
 }
