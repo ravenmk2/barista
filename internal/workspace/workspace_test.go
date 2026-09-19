@@ -156,3 +156,41 @@ func TestFindWorkspaceRootHomeGuard(t *testing.T) {
 		t.Errorf("want %q, got %q", ws, got)
 	}
 }
+
+func TestIsAbsURL(t *testing.T) {
+	abs := []string{
+		"https://github.com/org/app.git",
+		"file:///srv/git/app.git",
+		"git@github.com:org/app.git",
+		"/srv/git/app.git",
+		`C:/git/app.git`,
+		`c:\git\app.git`,
+		`\server\share\app.git`,
+	}
+	for _, u := range abs {
+		if !IsAbsURL(u) {
+			t.Errorf("IsAbsURL(%q) = false, want true", u)
+		}
+	}
+	rel := []string{"app.git", "org/app.git", "./app.git", "../app.git", "", "C:", `C:rel\app.git`}
+	for _, u := range rel {
+		if IsAbsURL(u) {
+			t.Errorf("IsAbsURL(%q) = true, want false", u)
+		}
+	}
+}
+
+func TestResolveURLAbsPath(t *testing.T) {
+	base := "https://github.com/org"
+	cases := map[string]string{
+		"/srv/git/app.git":    "/srv/git/app.git",
+		`C:/git/app.git`:      `C:/git/app.git`,
+		`\server\share\a.git`: `\server\share\a.git`,
+		"app.git":             "https://github.com/org/app.git",
+	}
+	for in, want := range cases {
+		if got := ResolveURL(base, in); got != want {
+			t.Errorf("ResolveURL(%q, %q) = %q, want %q", base, in, got, want)
+		}
+	}
+}

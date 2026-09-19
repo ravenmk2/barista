@@ -180,3 +180,20 @@ func TestAddRepoNormalizesURLComparison(t *testing.T) {
 		t.Error("existing entry should be untouched")
 	}
 }
+
+func TestAddRepoAbsLocalPath(t *testing.T) {
+	root := t.TempDir()
+	writeReposFile(t, root, `{"repos": []}`)
+	_, added, err := AddRepo(root, "app", `C:/git/app.git`, "", nil)
+	if err != nil || !added {
+		t.Fatalf("added=%v err=%v", added, err)
+	}
+	ws, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := ws.Repos.Repos[0]
+	if r.URL != `C:/git/app.git` || r.ResolvedURL != `C:/git/app.git` {
+		t.Errorf("abs path must be stored and resolved verbatim, got url=%q resolved=%q", r.URL, r.ResolvedURL)
+	}
+}

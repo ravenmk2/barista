@@ -49,7 +49,7 @@ func AddRepo(root, name, url, path string, labels []string) (repo Repo, appended
 		}
 	}
 	url = RelativizeURL(baseURL, url)
-	if !strings.Contains(url, "://") && !strings.HasPrefix(url, "git@") && baseURL == "" {
+	if !IsAbsURL(url) && baseURL == "" {
 		return repo, false, &LoadError{
 			Code:    "CONFIG_ERROR",
 			Message: fmt.Sprintf("relative url %q requires baseUrl in .barista/repos.json", url),

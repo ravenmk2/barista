@@ -86,7 +86,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 
 - **先注册后克隆**：clone 失败时条目已在清单中（合法状态），重跑 `repo add` 自动跳过注册、只重试克隆——全程幂等
 - name 推导：取 URL 最后一段（`/` 或 `:` 分隔），去尾部 `/` 与 `.git`；推导不出时报 `USAGE_ERROR` 并提示 `--name`
-- URL 存储：以 `baseUrl` 为前缀的绝对 URL 自动剥前缀存为相对形式；传相对 URL 但清单无 `baseUrl` 报 `CONFIG_ERROR`
+- URL 存储：以 `baseUrl` 为前缀的绝对 URL 自动剥前缀存为相对形式；传相对 URL 但清单无 `baseUrl` 报 `CONFIG_ERROR`；本地绝对路径（`/srv/...`、`C:/...`、`\\server\share\...`）视为绝对原样存储与克隆（注意：绝对路径不可跨平台移植，团队共享清单建议用 `file://` 或远端 URL）
 - 幂等与冲突：name 已存在且 URL 等价（忽略尾部 `/`、`.git` 差异）→ 跳过注册继续克隆；name 存在但 URL 不同 → `REPO_EXISTS`（exit 2）
 - 目标路径已是 git 仓库时校验其 origin 与清单解析 URL 一致，不符报 `REPO_REMOTE_MISMATCH`（exit 1），不静默跳过
 - 写 repos.json 为原子写，保留手改的未知顶层字段与既有条目的未知字段；新条目追加到 `repos` 数组末尾

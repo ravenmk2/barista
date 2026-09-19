@@ -180,8 +180,22 @@ func cleanRelPath(p, name string) (string, error) {
 	return c, nil
 }
 
-func ResolveURL(base, u string) string {
+// IsAbsURL reports whether u is a self-contained clone source: a scheme
+// URL, an scp-style git@ URL, or an absolute local path (POSIX root,
+// Windows drive, UNC).
+func IsAbsURL(u string) bool {
 	if strings.Contains(u, "://") || strings.HasPrefix(u, "git@") {
+		return true
+	}
+	if strings.HasPrefix(u, `/`) || strings.HasPrefix(u, `\`) {
+		return true
+	}
+	return len(u) >= 3 && u[1] == ':' && (u[2] == '/' || u[2] == '\\') &&
+		(u[0] >= 'A' && u[0] <= 'Z' || u[0] >= 'a' && u[0] <= 'z')
+}
+
+func ResolveURL(base, u string) string {
+	if IsAbsURL(u) {
 		return u
 	}
 	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(u, "/")
