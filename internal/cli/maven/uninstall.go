@@ -9,15 +9,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/maven"
 	"barista/internal/output"
 )
 
 func uninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uninstall <name>",
-		Short: "Delete a barista-installed Maven from disk and unregister it",
-		Args:  cobra.ExactArgs(1),
+		Use:               "uninstall <name>",
+		ValidArgsFunction: comp.Fn(comp.MavenNames),
+		Short:             "Delete a barista-installed Maven from disk and unregister it",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			_, p, ok := userSettings(cmd)

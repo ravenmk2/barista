@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 )
 
@@ -27,9 +28,10 @@ func whichCmd() *cobra.Command {
 
 func pathCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "path <major|name>",
-		Short: "Print the resolved JDK path (shortcut for: which --pathonly)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "path <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             "Print the resolved JDK path (shortcut for: which --pathonly)",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runResolve(cmd, args[0], true)
 			return nil
@@ -39,9 +41,10 @@ func pathCmd() *cobra.Command {
 
 func homeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "home <major|name>",
-		Short: "Print the resolved JDK path (same as: path)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "home <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             "Print the resolved JDK path (same as: path)",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runResolve(cmd, args[0], true)
 			return nil

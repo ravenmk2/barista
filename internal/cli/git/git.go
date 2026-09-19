@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 	"barista/internal/runner"
 	"barista/internal/workspace"
@@ -26,6 +27,8 @@ func NewCmd(exit *int) *cobra.Command {
 	}
 	cmd.PersistentFlags().StringSlice("label", nil, "select repos by label (repeatable, union)")
 	cmd.PersistentFlags().StringSlice("repo", nil, "select repos by name (repeatable, union)")
+	_ = cmd.RegisterFlagCompletionFunc("label", comp.Fn(comp.Labels))
+	_ = cmd.RegisterFlagCompletionFunc("repo", comp.Fn(comp.RepoNames))
 	cmd.AddCommand(
 		cloneCmd(),
 		statusCmd(),

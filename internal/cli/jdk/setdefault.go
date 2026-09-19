@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/jdk"
 	"barista/internal/output"
 )
@@ -21,7 +22,16 @@ func majorArg(arg string) (int, error) {
 
 func setDefaultCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "set-default <major> <name>",
+		Use: "set-default <major> <name>",
+		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return comp.JdkMajors(), cobra.ShellCompDirectiveNoFileComp
+			}
+			if len(args) == 1 {
+				return comp.JdkNames(), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Short: "Set the default JDK for a major version",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {

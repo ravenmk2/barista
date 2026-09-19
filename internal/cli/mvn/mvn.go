@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/output"
@@ -66,6 +67,7 @@ func NewCmd(exit *int) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("jdk", "", "JDK spec (registry name or major version) used to run Maven; overrides every config level")
+	_ = cmd.RegisterFlagCompletionFunc("jdk", comp.Fn(comp.JdkSpecs))
 	cmd.Flags().String("startup", "", "how to start Maven: script (default, mvn/mvn.cmd wrapper) or jar (direct java launch)")
 	cmd.Flags().Bool("dry-run", false, "print the resolved environment and full command line without executing")
 	return cmd

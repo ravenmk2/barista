@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/gitrun"
 	"barista/internal/output"
 	"barista/internal/workspace"
@@ -102,6 +103,7 @@ func addCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "repo name in the manifest (default: derived from the URL basename)")
 	cmd.Flags().String("path", "", "checkout path relative to the workspace root (default: repos/<name>)")
+	_ = cmd.RegisterFlagCompletionFunc("path", comp.Dirs)
 	cmd.Flags().StringSlice("label", nil, "labels for --label filtering (repeatable)")
 	cmd.Flags().Bool("no-clone", false, "register only; clone later with: barista git clone")
 	return cmd

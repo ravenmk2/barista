@@ -8,15 +8,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 	"barista/internal/workspace"
 )
 
 func useCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "use <major|name>",
-		Short: `Set the JDK for the current workspace (writes .barista/properties.json "jdk")`,
-		Args:  cobra.ExactArgs(1),
+		Use:               "use <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             `Set the JDK for the current workspace (writes .barista/properties.json "jdk")`,
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			_, p, ok := userSettings(cmd)

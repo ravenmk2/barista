@@ -9,14 +9,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 )
 
 func envCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "env <major|name>",
-		Short: "Print JAVA_HOME/PATH export statements for shell eval or CI",
-		Args:  cobra.ExactArgs(1),
+		Use:               "env <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             "Print JAVA_HOME/PATH export statements for shell eval or CI",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			shell := resolveShell(cmd)
@@ -65,6 +67,7 @@ func envCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("shell", "", "output syntax: sh, cmd or powershell (aliases: bash/zsh, pwsh/ps); default: auto-detect, else platform default")
+	_ = cmd.RegisterFlagCompletionFunc("shell", comp.Fn(comp.Shells))
 	return cmd
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/jdk"
 	"barista/internal/output"
 	"barista/internal/workspace"
@@ -61,6 +62,7 @@ func NewCmd(exit *int) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("jdk", "", "JDK spec (registry name or major version) used to run java; overrides every config level")
+	_ = cmd.RegisterFlagCompletionFunc("jdk", comp.Fn(comp.JdkSpecs))
 	cmd.Flags().Bool("dry-run", false, "print the resolved JDK and full command line without executing")
 	return cmd
 }

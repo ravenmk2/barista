@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/workspace"
@@ -50,9 +51,10 @@ func schemaListCmd() *cobra.Command {
 
 func schemaShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <name>",
-		Short: "Print a schema as JSON",
-		Args:  cobra.ExactArgs(1),
+		Use:               "show <name>",
+		ValidArgsFunction: comp.Fn(comp.SchemaNames),
+		Short:             "Print a schema as JSON",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			e, err := schemas.Get(args[0])
 			if err != nil {
@@ -89,6 +91,12 @@ func schemaValidateCmd() *cobra.Command {
 		Use:   "validate <name> [file]",
 		Short: "Validate a config file against an embedded schema",
 		Args:  cobra.RangeArgs(1, 2),
+		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return comp.SchemaNames(), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveDefault
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			if _, err := schemas.Get(name); err != nil {

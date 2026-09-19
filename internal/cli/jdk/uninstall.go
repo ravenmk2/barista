@@ -10,15 +10,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/jdk"
 	"barista/internal/output"
 )
 
 func uninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uninstall <name>",
-		Short: "Delete a barista-installed JDK from disk and unregister it",
-		Args:  cobra.ExactArgs(1),
+		Use:               "uninstall <name>",
+		ValidArgsFunction: comp.Fn(comp.JdkNames),
+		Short:             "Delete a barista-installed JDK from disk and unregister it",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			_, p, ok := userSettings(cmd)

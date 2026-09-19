@@ -6,14 +6,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/maven"
 	"barista/internal/output"
 )
 
 func setDefaultCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set-default <name>",
-		Short: "Set the default Maven installation",
+		Use:               "set-default <name>",
+		ValidArgsFunction: comp.Fn(comp.MavenNames),
+		Short:             "Set the default Maven installation",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 				return err

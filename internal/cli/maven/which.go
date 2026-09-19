@@ -7,15 +7,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/maven"
 	"barista/internal/output"
 )
 
 func whichCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "which [name|version]",
-		Short: "Resolve a Maven installation by name, version (progressively widened), or the effective default",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "which [name|version]",
+		ValidArgsFunction: comp.Fn(comp.MavenSpecs),
+		Short:             "Resolve a Maven installation by name, version (progressively widened), or the effective default",
+		Args:              cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pathOnly, _ := cmd.Flags().GetBool("pathonly")
 			runResolve(cmd, firstArg(args), pathOnly)
@@ -28,9 +30,10 @@ func whichCmd() *cobra.Command {
 
 func pathCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "path [name|version]",
-		Short: "Print the resolved maven home path (shortcut for: which --pathonly)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "path [name|version]",
+		ValidArgsFunction: comp.Fn(comp.MavenSpecs),
+		Short:             "Print the resolved maven home path (shortcut for: which --pathonly)",
+		Args:              cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runResolve(cmd, firstArg(args), true)
 			return nil
@@ -40,9 +43,10 @@ func pathCmd() *cobra.Command {
 
 func homeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "home [name|version]",
-		Short: "Print the resolved maven home path (same as: path)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "home [name|version]",
+		ValidArgsFunction: comp.Fn(comp.MavenSpecs),
+		Short:             "Print the resolved maven home path (same as: path)",
+		Args:              cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runResolve(cmd, firstArg(args), true)
 			return nil

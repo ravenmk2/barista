@@ -8,14 +8,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 )
 
 func removeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <name>",
-		Short: "Unregister a JDK (keeps files on disk)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "remove <name>",
+		ValidArgsFunction: comp.Fn(comp.JdkNames),
+		Short:             "Unregister a JDK (keeps files on disk)",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			_, p, ok := userSettings(cmd)

@@ -30,6 +30,30 @@ barista CLI 的完整命令参考。设计契约（分层、输出、退出码�
 
 通用红线：stdout/stderr 严格分离；非 TTY 永不阻塞询问；一切操作幂等，可重复执行。
 
+### shell 补全
+
+内置 `completion` 命令生成各 shell 的补全脚本：
+
+```bash
+# bash（Linux）
+barista completion bash > ~/.local/share/bash-completion/completions/barista
+# zsh（补全目录在 fpath 中）
+barista completion zsh > ~/.zsh/completions/_barista
+# fish
+barista completion fish > ~/.config/fish/completions/barista.fish
+# PowerShell（加进 $PROFILE）
+barista completion powershell >> $PROFILE
+```
+
+除命令名/flag 名的静态补全外，以下位置有动态补全（只读本地 registry / repos.json，失败静默降级为空，永不起子进程联网）：
+
+- `--repo` / `--label`（git 组）：当前工作区的仓库名与标签
+- jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
+- maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
+- `mvn --jdk` / `java --jdk`：JDK spec
+- `jdk env --shell`：sh/cmd/powershell（含别名）
+- `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录
+
 ## init — 工作区引导
 
 在目标目录（缺省当前目录）创建 `.barista/repos.json` skeleton，可选导入已存在的 git 检出。

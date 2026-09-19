@@ -7,7 +7,7 @@ barista 的目录结构与设计契约，改动代码前必读。
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：root（--json/--parallel）+ init/ 引导命令 + git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
+  cli/              cobra 命令层：root（--json/--parallel）+ comp/ 补全候选助手 + init/ 引导命令 + git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
   workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、init（skeleton 创建与两层检出扫描）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
   jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较
@@ -101,3 +101,4 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 - 默认分支解析链（`internal/gitrun/branch.go`）：repo → top → origin-head → probe(main/master/trunk)，**逐级回退**——候选分支在该仓库无真实 ref 时落到下一级，而不是失败；全落空才报 `DEFAULT_BRANCH_UNRESOLVED`
 - checkout 新建分支必须 `--no-track`（否则 push.default=simple 推不上去）；push 在无 upstream 时自动 `-u origin <branch>`
 - status 不静默联网，ahead/behind 基于本地缓存的远端引用
+- shell 补全（cli/comp，cobra ValidArgsFunction / RegisterFlagCompletionFunc）只读本地 registry / repos.json，任何读取失败静默返回空候选，永不起子进程、不联网

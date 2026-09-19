@@ -6,14 +6,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/output"
 )
 
 func setJdkCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "set-jdk <major|name>",
-		Short: "Set the JDK used to run Maven (resolved against the jdk registry)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "set-jdk <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             "Set the JDK used to run Maven (resolved against the jdk registry)",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
 			_, p, ok := userSettings(cmd)
