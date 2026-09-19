@@ -145,11 +145,11 @@ func execute(cmd *cobra.Command, action string, op repoOp) {
 			}
 		}
 		mu.Unlock()
-		output.NewTextRenderer(os.Stdout, command, color).Finish(final)
+		output.NewTextRenderer(os.Stdout, command, color, output.NameWidth(names)).Finish(final)
 		*exitCode = output.ExitCode(final)
 		return
 	}
-	tr := output.NewTextRenderer(os.Stdout, command, color)
+	tr := output.NewTextRenderer(os.Stdout, command, color, output.NameWidth(names))
 	results := runner.Run(ctx, tasks, parallel, tr.OnResult)
 	tr.Finish(results)
 	*exitCode = output.ExitCode(results)

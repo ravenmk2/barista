@@ -112,6 +112,8 @@ var (
 	stylePending    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	styleDim        = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	styleCyan       = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	styleBlue       = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
+	styleMagenta    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	styleYellowBold = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
 )
 
@@ -128,8 +130,26 @@ func (p lipPalette) Green(s string) string      { return p.render(styleOK, s) }
 func (p lipPalette) Red(s string) string        { return p.render(styleFailed, s) }
 func (p lipPalette) Yellow(s string) string     { return p.render(styleSkipped, s) }
 func (p lipPalette) Cyan(s string) string       { return p.render(styleCyan, s) }
+func (p lipPalette) Blue(s string) string       { return p.render(styleBlue, s) }
+func (p lipPalette) Magenta(s string) string    { return p.render(styleMagenta, s) }
 func (p lipPalette) Dim(s string) string        { return p.render(styleDim, s) }
 func (p lipPalette) YellowBold(s string) string { return p.render(styleYellowBold, s) }
+
+func (p lipPalette) Branch(s string) string {
+	switch branchClass(s) {
+	case classTrunk:
+		return p.Green(s)
+	case classDev:
+		return p.Blue(s)
+	case classFeature:
+		return p.Magenta(s)
+	case classRelease:
+		return p.Cyan(s)
+	case classFix:
+		return p.Yellow(s)
+	}
+	return s
+}
 
 func symbol(s Status) string {
 	switch s {
@@ -167,10 +187,11 @@ func (m model) icon(s Status) string {
 }
 
 type Panel struct {
-	prog  *tea.Program
-	m     model
-	mu    sync.Mutex
-	alive bool
+	prog      *tea.Program
+	m         model
+	mu        sync.Mutex
+	alive     bool
+	nameWidth int
 }
 
 func NewPanel(command string, names []string, color bool) *Panel {
@@ -180,7 +201,7 @@ func NewPanel(command string, names []string, color bool) *Panel {
 		color:   color,
 		started: make(chan struct{}),
 	}
-	return &Panel{prog: tea.NewProgram(m), m: m, alive: true}
+	return &Panel{prog: tea.NewProgram(m), m: m, alive: true, nameWidth: NameWidth(names)}
 }
 
 func (p *Panel) Started() <-chan struct{} { return p.m.started }
@@ -190,7 +211,7 @@ func (p *Panel) Start(name string) { p.prog.Send(startMsg{name}) }
 func (p *Panel) OnResult(_ int, res Result) {
 	p.prog.Send(resultMsg{res})
 	var buf bytes.Buffer
-	NewTextRenderer(&buf, p.m.command, p.m.color).OnResult(0, res)
+	NewTextRenderer(&buf, p.m.command, p.m.color, p.nameWidth).OnResult(0, res)
 	p.mu.Lock()
 	alive := p.alive
 	p.mu.Unlock()

@@ -4,21 +4,41 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 type TextRenderer struct {
-	w       io.Writer
-	command string
-	p       Palette
+	w         io.Writer
+	command   string
+	p         Palette
+	nameWidth int
 }
 
-func NewTextRenderer(w io.Writer, command string, color bool) *TextRenderer {
-	return &TextRenderer{w: w, command: command, p: NewPalette(color)}
+const maxNameWidth = 40
+
+func NameWidth(names []string) int {
+	w := 1
+	for _, n := range names {
+		w = max(w, utf8.RuneCountInString(n))
+	}
+	return min(w, maxNameWidth)
+}
+
+func padName(s string, w int) string {
+	if n := utf8.RuneCountInString(s); n > w {
+		return string([]rune(s)[:w-1]) + "…"
+	} else {
+		return s + strings.Repeat(" ", w-n)
+	}
+}
+
+func NewTextRenderer(w io.Writer, command string, color bool, nameWidth int) *TextRenderer {
+	return &TextRenderer{w: w, command: command, p: NewPalette(color), nameWidth: max(nameWidth, 1)}
 }
 
 func (r *TextRenderer) OnResult(_ int, res Result) {
 	status := fmt.Sprintf("%-8s", res.Status)
-	name := fmt.Sprintf("%-20s", res.Name)
+	name := padName(res.Name, r.nameWidth)
 	if res.Status != StatusOK {
 		line := status + " " + name + " " + describe(Palette{}, res)
 		if res.Status == StatusSkipped {
@@ -97,23 +117,23 @@ func describe(p styler, res Result) string {
 	d := res.Detail
 	switch res.Action {
 	case "clone":
-		return fmt.Sprintf("cloned from %v (branch %s)", d["url"], p.Cyan(fmt.Sprint(d["branch"])))
+		return fmt.Sprintf("cloned from %v (branch %s)", d["url"], p.Branch(fmt.Sprint(d["branch"])))
 	case "status":
 		return statusDetail(p, res)
 	case "checkout":
 		switch d["action"] {
 		case "created":
 			return fmt.Sprintf("created from %s (default branch source: %v)",
-				p.Cyan(fmt.Sprint(d["baseBranch"])), d["defaultBranchSource"])
+				p.Branch(fmt.Sprint(d["baseBranch"])), d["defaultBranchSource"])
 		case "created-tracking":
-			return "created tracking " + p.Cyan("origin/"+res.Branch)
+			return "created tracking " + p.Branch("origin/"+res.Branch)
 		default:
-			return "switched to " + p.Cyan(res.Branch)
+			return "switched to " + p.Branch(res.Branch)
 		}
 	case "fetch":
-		return fmt.Sprintf("%s fetched (prune=%v)", p.Cyan(res.Branch), d["prune"])
+		return fmt.Sprintf("%s fetched (prune=%v)", p.Branch(res.Branch), d["prune"])
 	case "pull":
-		return fmt.Sprintf("%s pulled (rebase=%v)", p.Cyan(res.Branch), d["rebase"])
+		return fmt.Sprintf("%s pulled (rebase=%v)", p.Branch(res.Branch), d["rebase"])
 	case "push":
 		verb := "pushed"
 		if d["tags"] == true {
@@ -121,7 +141,7 @@ func describe(p styler, res Result) string {
 		} else if d["setUpstream"] == true {
 			verb = "pushed and set upstream"
 		}
-		return p.Cyan(res.Branch) + " " + verb
+		return p.Branch(res.Branch) + " " + verb
 	}
 	return "ok"
 }
@@ -139,7 +159,7 @@ func statusDetail(p styler, res Result) string {
 		return p.Dim(s)
 	}
 	return strings.Join([]string{
-		p.Cyan(res.Branch),
+		p.Branch(res.Branch),
 		num("ahead", get("ahead"), p.Yellow),
 		num("behind", get("behind"), p.Yellow),
 		num("staged", get("staged"), p.Green),
