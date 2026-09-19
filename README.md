@@ -1,24 +1,27 @@
 # Barista
 
-[![Release](https://img.shields.io/github/v/release/ravenmk2/barista)](https://github.com/ravenmk2/barista/releases)
-[![Test](https://github.com/ravenmk2/barista/actions/workflows/test.yml/badge.svg)](https://github.com/ravenmk2/barista/actions/workflows/test.yml)
 [![Go version](https://img.shields.io/github/go-mod/go-version/ravenmk2/barista)](go.mod)
 [![License](https://img.shields.io/github/license/ravenmk2/barista)](LICENSE)
+[![Test](https://github.com/ravenmk2/barista/actions/workflows/test.yml/badge.svg)](https://github.com/ravenmk2/barista/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/ravenmk2/barista)](https://github.com/ravenmk2/barista/releases)
 
 多仓库工作区的开发环境管理工具，Java 生态优先。
 
-## 构建
+- **多仓库 git 批量操作**：clone / status / checkout / fetch / pull / push，label 过滤，并发执行
+- **JDK / Maven 工具链管理**：发现、注册、一键安装、多版本默认切换
+- **工作区感知的 mvn**：按 repo / 工作区 / 用户三级自动选用 JDK，注入私有 settings 与本地仓库
+
+## 安装
 
 ```bash
-./build.sh             # 交叉编译全平台 → dist/
-./build.sh --install   # 只构建当前平台 → ~/.local/bin/
+./build.sh --install   # 构建并装到 ~/.local/bin/
 ```
 
 要求：Go 1.26+，系统安装 git。
 
-## 使用
+## 快速上手
 
-创建 `.barista/repos.json`：
+在工作区根目录创建 `.barista/repos.json`：
 
 ```json
 {
@@ -30,44 +33,15 @@
 ```
 
 ```bash
-barista git clone                # 克隆全部（--label/--repo 过滤，可重复取并集）
-barista git status               # 所有仓库状态，末尾列出有变更的
-barista git checkout <branch>    # 切换分支；没有则从默认分支创建
-barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
+barista git clone              # 克隆全部仓库（--label/--repo 过滤）
+barista git status             # 所有仓库状态一览
+
+barista jdk discover           # 发现本机 JDK 并注册
+barista jdk install temurin17  # 或一键安装
+barista maven install 3.9.9    # 安装 Maven（sha512 校验）
+
+barista jdk use 17             # 本工作区用 JDK 17
+barista mvn -- clean install   # 自动带上工作区的 JDK 与 settings
 ```
 
-完整命令参考见 [docs/commands.md](docs/commands.md)。
-
-## 配置
-
-两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`）：
-
-| 级别      | 路径                                          |
-| --------- | --------------------------------------------- |
-| user      | `~/.barista/config.json`                        |
-| workspace | `<workspace>/.barista/config.json`（覆盖 user） |
-
-workspace 级另有 `<workspace>/.barista/properties.json`：执行环境偏好 KV（如 `jdk`、`maven.*` 键，由 `barista jdk use` / `barista maven set-default --scope workspace` 写入，仅 workspace 级存在）。
-
-user 级目录结构：
-
-```txt
-~/.barista/
-  config.json          用户配置
-  jdk.json             JDK registry（barista jdk 命令组维护）
-  maven.json           Maven registry（barista maven 命令组维护）
-  toolchains/          barista 托管安装的工具链
-    jdk/<name>/        barista jdk install 的安装位置
-    maven/<name>/      barista maven install 的安装位置
-```
-
-## Schema
-
-```bash
-barista schema list                                      # 列出内嵌 JSON Schema
-barista schema show repos|config|jdk|maven|properties               # 输出 schema 原文
-barista schema validate repos|config|jdk|maven|properties [file]    # 校验（config 默认校验 user + workspace 两级）
-                         [--scope user|workspace]
-```
-
-供 AI Agent 与编辑器在线发现、校验配置。
+配置文件全部自描述（内嵌 JSON Schema，可用 `barista schema` 发现与校验）。完整命令与配置参考：[docs/commands.md](docs/commands.md)。
