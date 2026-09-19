@@ -262,13 +262,36 @@ barista doctor [--deep]
 - 结果三态：ok / skipped（不适用或信息项，reason 在 detail）/ failed（带 hint）；exit 0 全过 / 1 有 failed / 2 用法错误
 - `--json` 每项 detail 含 `scope`（user|workspace）与 `check`（检查 id，如 `jdkInstall` / `repoCheckout`）
 
+## upgrade — 自更新
+
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。是唯一会主动联网的命令，其他命令永不被动检测更新。
+
+```txt
+barista upgrade [--check] [--yes]
+```
+
+| flag      | 说明                                       |
+| --------- | ------------------------------------------ |
+| `--check` | 只检测是否有新版本，不下载不替换           |
+| `--yes`   | 跳过确认提示（非 TTY 下必需）              |
+
+### 行为
+
+- 读取 `releases/latest/download/manifest.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
+- 下载对应 GOOS/GOARCH 的 asset（断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
+- 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
+- 确认契约：TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
+- exit 0 已最新或升级成功 / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
+
+清单文件由 release workflow 生成（六平台 asset 的 file/sha256/size），发布前用 `barista schema validate manifest` 校验。
+
 ## schema — 内置 JSON Schema 工具
 
 供 AI Agent 与编辑器在线发现、校验配置。schema 单一数据源在 `schemas/` 包。
 
 | 命令                          | 行为                                         |
 | ----------------------------- | -------------------------------------------- |
-| `list`                        | 列出可用 schema（repos / config / jdk / maven / properties） |
+| `list`                        | 列出可用 schema（repos / config / jdk / maven / properties / manifest） |
 | `show <name>`                 | 输出 schema 原文 JSON                        |
 | `validate <name> [file]`      | 校验配置文件                                 |
 

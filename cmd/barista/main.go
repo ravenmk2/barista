@@ -12,7 +12,7 @@ import (
 var version = "dev"
 
 func main() {
-	if err := fang.Execute(context.Background(), cli.NewRootCmd(), fang.WithVersion(version)); err != nil {
+	if err := fang.Execute(context.Background(), cli.NewRootCmd(version), fang.WithVersion(version)); err != nil {
 		os.Exit(2)
 	}
 	os.Exit(cli.ExitCode)

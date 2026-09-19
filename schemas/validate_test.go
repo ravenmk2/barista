@@ -103,6 +103,24 @@ func TestValidate(t *testing.T) {
 			doc:       `{"installations":[{"name":"Maven-3.9","version":"3.9.11","path":"/opt/maven"}]}`,
 			wantPaths: []string{"installations[0].name"},
 		},
+		{
+			name:      "manifest minimal valid",
+			schema:    "manifest",
+			doc:       `{"schemaVersion":1,"version":"v0.3.0","assets":{"windows/amd64":{"file":"barista-windows-amd64.exe","sha256":"` + strings.Repeat("a", 64) + `","size":10}}}`,
+			wantValid: true,
+		},
+		{
+			name:      "manifest missing assets",
+			schema:    "manifest",
+			doc:       `{"schemaVersion":1,"version":"v0.3.0"}`,
+			wantPaths: []string{"$"},
+		},
+		{
+			name:      "manifest bad sha256",
+			schema:    "manifest",
+			doc:       `{"schemaVersion":1,"version":"v0.3.0","assets":{"linux/amd64":{"file":"barista-linux-amd64","sha256":"xyz","size":10}}}`,
+			wantPaths: []string{"assets.linux.amd64.sha256"},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

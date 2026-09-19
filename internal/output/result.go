@@ -43,6 +43,10 @@ const (
 	CodeMavenExecFailed         = "MAVEN_EXEC_FAILED"
 	CodeJavaExecFailed          = "JAVA_EXEC_FAILED"
 	CodeRepoRemoteMismatch      = "REPO_REMOTE_MISMATCH"
+	CodeUpgradeCheckFailed      = "UPGRADE_CHECK_FAILED"
+	CodeUpgradeDownloadFailed   = "UPGRADE_DOWNLOAD_FAILED"
+	CodeUpgradeChecksumMismatch = "UPGRADE_CHECKSUM_MISMATCH"
+	CodeUpgradeReplaceFailed    = "UPGRADE_REPLACE_FAILED"
 	CodeUsageError              = "USAGE_ERROR"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )

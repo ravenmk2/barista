@@ -7,12 +7,13 @@ barista 的目录结构与设计契约，改动代码前必读。
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + schema.go
+  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
   workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
   jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较
   maven/            Maven 域：registry（~/.barista/maven.json）读写、文件系统探测（maven-core jar）、版本比较、模糊解析
   download/         通用下载（断点续传/退避重试）与归档解压（zip/tar.gz），jdk 与 maven 共用
+  upgrade/          自更新域：release manifest 拉取/解析/校验、版本比较、sha256 校验、可执行文件自替换（Windows rename-old）
   runner/           通用并发 worker pool（泛型，不绑定 git 语义）
   output/           Result 类型 + text/json/tui renderer + 高亮（color.go）+ 下载进度格式化（progress.go）
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
@@ -30,6 +31,7 @@ internal/gitrun/    git 域：exec 封装、单仓库操作、默认分支解析
 internal/jdk/       JDK 域：registry 读写（原子写）、probe（java -version / -XshowSettings 解析）、版本解析比较、discover 候选收集（JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 反推）
 internal/maven/     Maven 域：registry 读写（原子写）、probe（纯文件系统：bin/mvn 存在性 + lib/maven-core-*.jar 文件名解析版本，不起子进程）、版本比较（数字段 + qualifier token 比较，ComparableVersion 简化版）、模糊解析、discover 候选收集（MAVEN_HOME/M2_HOME / sdkman / brew / scoop / 平台位置 / PATH 反推）
 internal/download/  通用下载（Range 断点续传、指数退避重试、4xx 不重试）与归档解压（剥首层、防 zip-slip/逃逸 symlink）
+internal/upgrade/   自更新域：release manifest 拉取/解析/校验（base URL 可注入，默认 GitHub releases/latest/download）、版本比较（复用 maven.CompareVersions，dev/dirty 视为未知始终可升级）、sha256 校验、可执行文件自替换
 internal/runner/    通用并发 worker pool（泛型，不绑定 git 语义）
 internal/output/    Result 类型 + text / json / tui 三种 renderer
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
@@ -48,6 +50,8 @@ maven 命令组镜像 jdk 的骨架与契约（自带执行骨架、tabwriter �
 `barista java` 是同型执行器（cli/java/，镜像 cli/mvn 骨架）：`barista java [--jdk spec] [--dry-run] -- <java args>`。JDK 解析链 `--jdk > repo properties["jdk"] > workspace jdk > ambient（PATH 查找 java）`，无 maven.json jdk 一级；显式级别失败响亮报 JDK_NOT_FOUND（exit 2），ambient 也落空同样 JDK_NOT_FOUND。命中注册 JDK 时直接 exec 其 `bin/java`（Windows `bin/java.exe`，不经 cmd 包装），只对子进程设 JAVA_HOME；java 非零退出 → exit 1，启动失败 → JAVA_EXEC_FAILED（exit 2）。环境组装同为纯函数 planExec（ambient 的 PATH 查找在 buildPlan 完成、以 ambientBin 注入，保持 planExec 可测）。
 
 `barista doctor` 是体检命令（cli/doctor/）：只诊断不修复，每项检查一个 Result（ok / skipped 信息项带 reason / failed 带修复 hint），浅查项装配期同步执行，probe 与 repo 检查走 runner 并发；始终查 user 级（git on PATH、JAVA_HOME 有效性、config/jdk/maven registry 可解析性与引用完整性——defaults/default/jdk/installDir，Maven 条目版本用纯文件系统 probe 即时比对），机会主义加查 workspace 级（.barista 可加载、repo 检出存在、properties 与 per-repo properties 的 jdk/maven.default/maven.startup 可解析、settings.xml 存在性）；`--deep` 追加 JDK 重 probe（起 java 子进程比对注册版本）与 repo origin 对清单 URL 的归一化比对。文本按 scope 分组自排版（不复用绑定 git 语义的 TextRenderer），JSON 走 Envelope（detail 含 scope/check）。exit 0 全过 / 1 有 failed / 2 用法错误。
+
+`barista upgrade` 是自更新命令（cli/upgrade/ + internal/upgrade/），**唯一主动联网的命令**：读最新 release 的 `manifest.json` asset（固定 URL，无 API 调用），比较版本（当前 ≥ 最新幂等报 ok；dev/dirty 构建视为未知始终可升级），下载平台 asset（复用 download 包：断点续传 + 重试 + TTY 进度条），sha256 校验不符报 UPGRADE_CHECKSUM_MISMATCH，然后替换 `os.Executable()`——Unix 临时文件 rename 原子覆盖；Windows 运行中 exe 不可覆盖但可改名，先 rename 为 `.old` 再写入，`.old` 下次启动清理。确认契约同 uninstall：TTY 询问 / 非 TTY CONFIRMATION_REQUIRED（exit 2）/ `--yes` 直通；`--check` 只检测不下载。清单由 release workflow 生成（shell 循环 dist/ + sha256sum），发布前经 `barista schema validate manifest` 校验（schema 在 schemas/manifest.schema.json）。
 
 启动模式（launch.go）：`--startup` > repo `properties["maven.startup"]` > workspace `properties["maven.startup"]` > 默认 `script`；非法值报 CONFIG_ERROR。`script` 即上述包装脚本路径。`jar` 绕过包装脚本直启 java（消除 `cmd /c` 二次解析对 `%`/`&`/`|` 参数的变形风险，双平台同一代码路径），复刻 mvn 脚本契约（3.6–3.9 实测同构）：java 取 JDK 路径的 `bin/java`（ambient 时 PATH 查找）、glob `boot/plexus-classworlds-*.jar` 恰一个 + `bin/m2.conf` 存在（否则 MAVEN_EXEC_FAILED，hint 回退 `--startup script`）、basedir 上爬 `.mvn`（感知 `-f`/`--file`，`MAVEN_BASEDIR` env 优先，落空回 cwd）、读 `.mvn/jvm.config`、透传 `MAVEN_OPTS`/`MAVEN_DEBUG_OPTS`、`MAVEN_ARGS` 仅 ≥3.9 追加、`-Dlibrary.jansi.path` 在 `lib/jansi-native` 存在时设置。差异声明：jar 模式不执行 `mavenrc_pre/post` 钩子。
 
