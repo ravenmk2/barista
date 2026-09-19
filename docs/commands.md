@@ -30,6 +30,30 @@ barista CLI 的完整命令参考。设计契约（分层、输出、退出码�
 
 通用红线：stdout/stderr 严格分离；非 TTY 永不阻塞询问；一切操作幂等，可重复执行。
 
+## init — 工作区引导
+
+在目标目录（缺省当前目录）创建 `.barista/repos.json` skeleton，可选导入已存在的 git 检出。
+
+```txt
+barista init [path] [--repo-base-url <url>] [--default-branch <name>] [--scan]
+```
+
+| flag               | 说明                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| `--repo-base-url`       | 清单的相对 URL 前缀                                            |
+| `--default-branch` | 所有仓库的默认分支兜底                                         |
+| `--scan`           | 扫描两层内的 git 检出（`*/.git`、`repos/*/.git`），按 origin URL 预填 repos |
+
+### 要点
+
+- 幂等：`repos.json` 已存在永不覆盖，报 already initialized；带 `--scan` 重跑则只导入缺失条目（已注册的跳过）
+- 导入时 name 取目录名，URL 以 `baseUrl` 为前缀自动转相对；无 origin 的检出跳过；path 不存在的目标报 `CONFIG_ERROR`（exit 2）
+- exit 0 成功或已初始化 / 2 用法与配置错误
+
+```bash
+barista init --repo-base-url git@github.com:org/ --scan
+```
+
 ## git — 多仓库批量操作
 
 要求在 `.barista/` 工作区内运行（向上查找）。仓库清单来自 `.barista/repos.json`。

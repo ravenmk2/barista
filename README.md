@@ -21,7 +21,13 @@
 
 ## 快速上手
 
-在工作区根目录创建 `.barista/repos.json`：
+在工作区根目录初始化（已有检出的目录可加 `--scan` 直接导入）：
+
+```bash
+barista init --base-url git@github.com:your-org/ --scan
+```
+
+手工编辑的 `.barista/repos.json` 形如：
 
 ```json
 {

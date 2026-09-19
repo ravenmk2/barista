@@ -5,6 +5,7 @@ import (
 
 	doctorcli "barista/internal/cli/doctor"
 	gitcli "barista/internal/cli/git"
+	initcli "barista/internal/cli/init"
 	javacli "barista/internal/cli/java"
 	jdkcli "barista/internal/cli/jdk"
 	mavencli "barista/internal/cli/maven"
@@ -23,6 +24,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.PersistentFlags().Bool("json", false, "output results as JSON")
 	root.PersistentFlags().Int("parallel", 10, "max concurrent repo operations")
 	root.AddCommand(gitcli.NewCmd(&ExitCode))
+	root.AddCommand(initcli.NewCmd(&ExitCode))
 	root.AddCommand(jdkcli.NewCmd(&ExitCode))
 	root.AddCommand(mavencli.NewCmd(&ExitCode))
 	root.AddCommand(mvncli.NewCmd(&ExitCode))

@@ -7,8 +7,8 @@ barista 的目录结构与设计契约，改动代码前必读。
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
-  workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）
+  cli/              cobra 命令层：root（--json/--parallel）+ init/ 引导命令 + git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
+  workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、init（skeleton 创建与两层检出扫描）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
   jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较
   maven/            Maven 域：registry（~/.barista/maven.json）读写、文件系统探测（maven-core jar）、版本比较、模糊解析
@@ -39,7 +39,9 @@ schemas/            JSON Schema 单一数据源（包即数据目录，同目录
 
 核心契约：**cli 产出 `[]Task` → runner 产出 `[]Result` → renderer 只消费 Result**。renderer 不得触碰 git 逻辑。新增功能域（jdk、tool）时各自实现 Task，runner 和 output 不得为此修改。
 
-repo 命令组（cli/repo/）管理工作区清单 repos.json，是唯一**写** repos.json 的入口：自带轻骨架（单仓库操作不走 runner/panel），`repo add <url>` 先注册后克隆——注册走 `workspace.AddRepo`（原子写，保留未知顶层字段与既有条目原始字节，baseUrl 前缀自动剥成相对存储；name 存在且 URL 等价 → 幂等跳过，URL 不同 → REPO_EXISTS exit 2），克隆复用 `gitrun.Clone`（目标已是 git 仓库先校验 origin 与 ResolvedURL 一致，不符报 REPO_REMOTE_MISMATCH exit 1）；clone 失败留下"已注册未检出"的合法状态，重跑自动续 clone。URL 等价比较统一走 `workspace.NormalizeURL`（去尾部 `/` 与 `.git`）。
+repo 命令组（cli/repo/）管理工作区清单 repos.json，是唯一**写** repos.json 的入口（`init --scan` 的导入也复用同一 AddRepo 路径）：自带轻骨架（单仓库操作不走 runner/panel），`repo add <url>` 先注册后克隆——注册走 `workspace.AddRepo`（原子写，保留未知顶层字段与既有条目原始字节，baseUrl 前缀自动剥成相对存储；name 存在且 URL 等价 → 幂等跳过，URL 不同 → REPO_EXISTS exit 2），克隆复用 `gitrun.Clone`（目标已是 git 仓库先校验 origin 与 ResolvedURL 一致，不符报 REPO_REMOTE_MISMATCH exit 1）；clone 失败留下"已注册未检出"的合法状态，重跑自动续 clone。URL 等价比较统一走 `workspace.NormalizeURL`（去尾部 `/` 与 `.git`）。
+
+`barista init [path]`（cli/init/）引导新工作区：`workspace.Init` 创建 `.barista/repos.json` skeleton（已存在永不覆盖，报 already initialized），目标路径不存在报 CONFIG_ERROR；`--scan` 经 `workspace.ScanCheckouts` 扫两层内（`*/.git`、`repos/*/.git`，跳过隐藏目录与 .barista）的检出，按 origin URL 逐条 AddRepo 导入（无 origin / 已注册 / name 冲突均跳过并记录原因），导入的 URL 同样走 baseUrl 转相对。
 
 jdk 命令组的特殊性：registry 是 user 级文件，命令不依赖工作区（`use` 例外：jdk 组唯一需要工作区的命令，写 `<workspace>/.barista/properties.json` 的 `jdk` 键），故 cli/jdk 自带执行骨架（不调用 workspace.Load）；output 的 TextRenderer 绑定 git 语义（"repos" 汇总行、git 动作描述），jdk 域文本输出在 cli/jdk 内自行排版（tabwriter；which 例外，恒走 Envelope JSON，`--pathonly`/`path`/`home` 输出纯路径；env 默认输出 shell 导出语句供 eval 消费，`--shell sh|cmd|powershell`（别名 bash/zsh→sh、pwsh/ps→powershell），缺省自动检测当前 shell（Windows 用 x/sys/windows 读父进程映像名，其次 MSYSTEM/SHELL 标记；Unix 读 `$SHELL`），检测落空回退平台默认，`--json` 走 Envelope），色彩复用导出的 `output.Palette`（高亮语义仍集中在 color.go，命令实现不手写 ANSI），JSON 仍走 output.Envelope。discover 是 jdk 域唯一走 runner 并发的命令（每个候选路径一个 Task，probe 起子进程）；注册在主线程串行进行，命名按 `<distro><major>` 冲突追加 `-1`/`-2`。discover 幂等可重复：已注册路径（SamePath 比较）报 skipped，原因放 `Detail.reason`（不带 Error，重复跑不产生错误）；probe 失败的候选同样 skipped 但保留 Error 诊断。install 通过 Provider 接口解析发行版下载地址（当前仅 temurin → Adoptium API），下载支持断点续传（Range 头）与指数退避重试（默认 4 次，4xx 不重试），TTY 下 stderr 渲染进度条（百分比/速度/ETA）；下载后解压到 `<installDir>/<name>`（剥归档首层目录），probe 校验 major 匹配才注册（`managed: true`），任何失败清理半成品目录。uninstall 仅作用于 managed 条目，删除 `<installDir>/<name>` 整树并注销（级联清 defaults）；确认契约：TTY 交互询问，非 TTY 报 CONFIRMATION_REQUIRED（exit 2），`--yes` 直通。
 
