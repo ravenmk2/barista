@@ -113,6 +113,7 @@ func Status(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo) o
 		"modified":  st.Modified,
 		"untracked": st.Untracked,
 		"changed":   st.Staged+st.Modified+st.Untracked > 0,
+		"tracked":   st.HasUpstream,
 	}
 	return res
 }

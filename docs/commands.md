@@ -110,7 +110,8 @@ barista init --repo-base-url git@github.com:org/ --scan
 - `--prune` / `--rebase` 未显式给出时回退 properties.json 的 `git.fetch.prune` / `git.pull.rebase`
 - checkout 三分支：本地分支已存在 → 切换；`origin/<branch>` 存在 → `checkout --track`；都没有 → 从默认分支创建（`--no-track`）
 - checkout 遇未提交变更（staged/modified）报 skipped `DIRTY_WORKTREE`
-- text 输出中 repo 名按本批最长名动态对齐（上限 40 字符，超长截断为 `…`）；分支按类别着色：`main`/`master`/`trunk` 绿、`develop`/`dev` 蓝、`feature/**` 黄、`release/**` 青、`hotfix/**`/`fix/**`/`bugfix/**` 品红，其余不着色（`origin/` 前缀不影响分类）
+- text 输出中 repo 名按本批最长名动态对齐（上限 40 字符，超长截断为 `…`）；分支按类别着色：`main`/`master`/`trunk` 绿、`develop`/`dev` 蓝、`release/**` 青、`feature/**` 黄、`hotfix/**`/`fix/**`/`bugfix/**` 品红，其余不着色（`origin/` 前缀不影响分类）
+- status 中未跟踪 upstream 的本地分支带 `*` 后缀，且 ahead/behind 显示 `-`（无 upstream 可比较）；JSON detail 含 `tracked` 布尔字段
 
 ```bash
 barista git status --label java

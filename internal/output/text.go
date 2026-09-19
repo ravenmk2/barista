@@ -158,10 +158,17 @@ func statusDetail(p styler, res Result) string {
 		}
 		return p.Dim(s)
 	}
+	tracked, _ := res.Detail["tracked"].(bool)
+	branch := p.Branch(res.Branch)
+	ab := func(label string, v int) string { return num(label, v, p.Yellow) }
+	if !tracked {
+		branch += "*"
+		ab = func(label string, _ int) string { return p.Dim(label + "=-") }
+	}
 	return strings.Join([]string{
-		p.Branch(res.Branch),
-		num("ahead", get("ahead"), p.Yellow),
-		num("behind", get("behind"), p.Yellow),
+		branch,
+		ab("ahead", get("ahead")),
+		ab("behind", get("behind")),
 		num("staged", get("staged"), p.Green),
 		num("modified", get("modified"), p.Red),
 		num("untracked", get("untracked"), p.Red),

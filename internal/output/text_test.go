@@ -1,6 +1,9 @@
 package output
 
-import "testing"
+import (
+	"maps"
+	"testing"
+)
 
 func TestBranchClass(t *testing.T) {
 	cases := map[string]branchClassT{
@@ -75,5 +78,21 @@ func TestPadName(t *testing.T) {
 	}
 	if got := padName("服务abc", 5); len([]rune(got)) != 5 {
 		t.Errorf("multibyte pad: got %q (runes %d)", got, len([]rune(got)))
+	}
+}
+func TestStatusDetailTrackedMarker(t *testing.T) {
+	p := NewPalette(false)
+	base := map[string]any{"ahead": 1, "behind": 2, "staged": 0, "modified": 3, "untracked": 0}
+
+	tracked := Result{Branch: "main", Detail: map[string]any{"tracked": true}}
+	maps.Copy(tracked.Detail, base)
+	if got, want := statusDetail(p, tracked), "main ahead=1 behind=2 staged=0 modified=3 untracked=0"; got != want {
+		t.Errorf("tracked: got %q, want %q", got, want)
+	}
+
+	local := Result{Branch: "feature/x", Detail: map[string]any{"tracked": false}}
+	maps.Copy(local.Detail, base)
+	if got, want := statusDetail(p, local), "feature/x* ahead=- behind=- staged=0 modified=3 untracked=0"; got != want {
+		t.Errorf("untracked: got %q, want %q", got, want)
 	}
 }
