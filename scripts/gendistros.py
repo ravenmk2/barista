@@ -136,7 +136,6 @@ def graalvm_releases():
 
 def main():
     data = {
-        "schemaVersion": 1,
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "distros": {"zulu": zulu_releases(), "graalvm": graalvm_releases()},
     }

@@ -36,18 +36,14 @@ type embeddedRelease struct {
 }
 
 type distrosFile struct {
-	SchemaVersion int                          `json:"schemaVersion"`
-	GeneratedAt   string                       `json:"generatedAt"`
-	Distros       map[string][]embeddedRelease `json:"distros"`
+	GeneratedAt string                       `json:"generatedAt"`
+	Distros     map[string][]embeddedRelease `json:"distros"`
 }
 
 var loadEmbedded = sync.OnceValues(func() (distrosFile, error) {
 	var f distrosFile
 	if err := json.Unmarshal(distrosJSON, &f); err != nil {
 		return f, err
-	}
-	if f.SchemaVersion != 1 {
-		return f, fmt.Errorf("distros.json: unsupported schemaVersion %d", f.SchemaVersion)
 	}
 	return f, nil
 })
