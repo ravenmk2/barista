@@ -45,11 +45,11 @@ func (p Palette) Branch(s string) string {
 	case classDev:
 		return p.Blue(s)
 	case classFeature:
-		return p.Magenta(s)
-	case classRelease:
 		return p.Cyan(s)
-	case classFix:
+	case classRelease:
 		return p.Yellow(s)
+	case classFix:
+		return p.Magenta(s)
 	}
 	return s
 }
