@@ -101,9 +101,9 @@ func finish(cmd *cobra.Command, results []output.Result) {
 
 func failResult(cmd *cobra.Command, p output.Palette, res output.Result) {
 	if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
-		_, _ = fmt.Fprintln(os.Stdout, p.Red(fmt.Sprintf("failed %s: %s: %s", res.Name, res.Error.Code, res.Error.Message)))
+		_, _ = fmt.Fprintln(os.Stderr, p.Red(fmt.Sprintf("failed %s: %s: %s", res.Name, res.Error.Code, res.Error.Message)))
 		if res.Error.Hint != "" {
-			_, _ = fmt.Fprintln(os.Stdout, p.Dim("hint: "+res.Error.Hint))
+			_, _ = fmt.Fprintln(os.Stderr, p.Dim("hint: "+res.Error.Hint))
 		}
 	}
 	finish(cmd, []output.Result{res})

@@ -13,9 +13,10 @@ import (
 
 func whichCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "which <major|name>",
-		Short: "Resolve a JDK by major version (default first, else latest) or by exact name",
-		Args:  cobra.ExactArgs(1),
+		Use:               "which <major|name>",
+		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
+		Short:             "Resolve a JDK by major version (default first, else latest) or by exact name",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pathOnly, _ := cmd.Flags().GetBool("pathonly")
 			runResolve(cmd, args[0], pathOnly)

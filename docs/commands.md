@@ -11,14 +11,17 @@ barista CLI 的完整命令参考。设计契约（分层、输出、退出码�
 | `--json`     | off  | 结果以 JSON envelope 输出到 stdout   |
 | `--parallel` | 10   | 并发执行的仓库/任务数上限            |
 
-`--parallel` 未显式给出时回退到 config 的 `parallel` 字段（git 命令组与 `jdk discover` 适用）。
+`--parallel` 未显式给出时回退到 config 的 `parallel` 字段（git 命令组读 user+workspace 合并后的 config；`jdk discover` 只读 user 级 config）。
+
+fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--version` flag。
 
 ### 输出形态
 
 - text：非 TTY 逐条输出；TTY 下 git 命令组渲染实时面板
 - JSON：`--json` 时输出 envelope，含 `schemaVersion: 1`、`command`、`success`、`results`；结果顺序与声明顺序一致
 - 错误：stderr 输出 `barista: CODE: message`（可带 `hint:` 行），`--json` 时 stdout 另出 error envelope
-- 例外：`jdk`/`maven` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 命令组恒输出 JSON，且其错误格式为 `barista: <msg>`（无 CODE、无 hint）
+- 例外：`jdk`/`maven` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven 的 `path`/`home`/`which --pathonly` 输出纯路径，无尾随换行
+- jdk/maven 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
 
 ### 退出码
 
@@ -51,7 +54,7 @@ barista completion powershell >> $PROFILE
 - jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
 - `mvn --jdk` / `java --jdk`：JDK spec
-- `jdk env --shell`：sh/cmd/powershell（含别名）
+- `jdk env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
 - `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录
 
 ## init — 工作区引导
@@ -156,24 +159,24 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 | `discover`                   | 扫描 JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 并注册 |
 | `add <name> <path>`          | 注册已安装的 JDK（起 `java` 探测版本与发行版；`javac` 仅做存在性检查） |
 | `install <distro><major>`    | 下载并安装到托管目录（当前支持 temurin，走 Adoptium API）   |
-| `list`                       | 列出已注册 JDK                                              |
+| `list`                       | 列出已注册 JDK（别名 `ls`）                                 |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
 | `env <major\|name>`           | 打印 JAVA_HOME/PATH 导出语句（`--shell sh\|cmd\|powershell`，缺省自动检测当前 shell，供 eval / CI 消费） |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
 | `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
 | `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace `.barista/properties.json` 的 `jdk` 键） |
-| `remove <name>`              | 仅注销，保留磁盘文件                                        |
+| `remove <name>`              | 仅注销，保留磁盘文件（级联清理指向它的 defaults）           |
 | `uninstall <name>`           | 删除 managed 安装并注销（级联清理 defaults）                |
 
 ### 要点
 
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
-- add：`--default` 同时设为该 major 的默认
+- add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符报 USAGE_ERROR（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
-- remove：直接注销，无确认、不删文件（幂等）
+- remove：直接注销，无确认、不删文件（幂等），并级联清理 jdk.json 中所有指向该 JDK 的 defaults
 - uninstall：仅作用于 managed 条目；确认契约为 TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
 
 ```bash
@@ -194,24 +197,25 @@ barista jdk which 17
 | `discover`              | 扫描 MAVEN_HOME/M2_HOME / sdkman / brew / scoop / 平台位置 / PATH 并注册 |
 | `add <path>`            | 注册已安装的 Maven（从 `lib/maven-core-*.jar` 文件名读版本，不起子进程） |
 | `install <version>`     | 从 Apache archive 下载（sha512 校验）安装到托管目录                     |
-| `list`                  | 列出已注册 Maven                                                       |
+| `list`                  | 列出已注册 Maven（别名 `ls`）                                            |
 | `which [name\|version]` | 按名或版本解析（版本逐级放宽）；不传参数取生效默认（恒输出 JSON）      |
 | `path` / `home`         | 只打印 maven home 路径（`which --pathonly` 的快捷方式）                |
 | `set-default <name>`    | 设置默认 Maven（`--scope` 选择写入层级）                               |
 | `set-jdk <major\|name>` | 设置运行 Maven 的 JDK（按 jdk 注册表解析，写 user maven.json）         |
 | `set-install-dir <path>` | 设置托管安装根目录（写入 maven.json `installDir`；`--reset` 恢复内置默认） |
 | `config`                | 查看生效配置（default / jdk / installDir 及 workspace 级项）及其来源   |
-| `remove <name>`         | 仅注销，保留磁盘文件                                                   |
-| `uninstall <name>`      | 删除 managed 安装并注销                                                |
+| `remove <name>`         | 仅注销，保留磁盘文件（若为 user 级 default 一并清除）                  |
+| `uninstall <name>`      | 删除 managed 安装并注销（同样清除指向它的 user 级 default）            |
 
 ### 要点
 
-- add：`--name` 指定注册名（默认 `maven-<major.minor>`，冲突自动追加序号）；`--default` 同时设为默认
+- add：`--name` 指定注册名（默认 `maven-<major.minor>`，冲突自动追加序号）；名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；`--default` 同时设为默认
+- set-default：对 name 校验同一名称模式 `[a-z0-9][a-z0-9._-]*`（不符为用法错误，exit 2），但不查版本号形态（remove/uninstall/set-default 本就强制精确名，不走模糊解析）
 - install：解压后 probe 校验版本与请求完全一致，失败清理目录
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
 - set-jdk：只写 user 级 maven.json，写入的是用户给的原始 spec（如 `17`），而非解析后的注册名；workspace 级覆盖用 `barista jdk use`
-- remove/uninstall 契约与 jdk 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通
+- remove/uninstall 契约与 jdk 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通；两者若为 user 级 default 均一并清除该 default
 
 ```bash
 barista maven install 3.9.9
@@ -302,7 +306,7 @@ barista doctor [--deep]
 ### 检查项
 
 - user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；properties 与 per-repo properties 里的 `jdk` / `maven.default` / `maven.startup` 可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.startup` 与 per-repo properties 的 `jdk` / `maven.startup`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
 
 ### 要点
 
@@ -329,9 +333,9 @@ barista upgrade [--check] [--yes]
 - 下载对应 GOOS/GOARCH 的 asset（断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
 - 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
 - 确认契约：TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
-- exit 0 已最新或升级成功 / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
+- exit 0 已最新、升级成功或 TTY 下回答 no 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
 
-清单文件由 release workflow 生成（六平台 asset 的 file/sha256/size），发布前用 `barista schema validate manifest` 校验。
+清单文件由 release workflow 生成（六平台 asset 的 file/sha256/size），发布前用 `barista schema validate manifest <file>` 校验（不带 file 会解析到工作区默认路径 `<workspace>/.barista/manifest.json`）。
 
 ## schema — 内置 JSON Schema 工具
 
@@ -355,7 +359,7 @@ barista upgrade [--check] [--yes]
 
 - 校验不通过：exit 1，结果 JSON 的 `errors` 列出问题
 - 用法/环境错误（未知 schema、文件不可读、`--scope` 误用）：exit 2
-- 结果始终以 JSON 输出到 stdout（此命令组不受 `--json` 影响）；错误输出为 `barista: <msg>`（无 CODE、无 hint），与其他命令组的全局格式不同
+- 结果以 JSON 输出到 stdout（`list` 例外，输出纯文本列表；此命令组不受 `--json` 影响）；错误输出为 `barista: <msg>`（无 CODE、无 hint），与其他命令组的全局格式不同
 
 ## 附录：JSON 输出示例
 
