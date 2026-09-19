@@ -36,9 +36,11 @@ barista git checkout <branch>    # 切换分支；没有则从默认分支创建
 barista git fetch|pull|push      # 同步（--prune / --rebase / --tags）
 ```
 
+完整命令参考见 [docs/commands.md](docs/commands.md)。
+
 ## 配置
 
-两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`installDir`）：
+两级 `config.json`（格式相同，均为可选，字段：`parallel`、`color`、`installDir`、`mavenInstallDir`、`properties`）：
 
 | 级别      | 路径                                          |
 | --------- | --------------------------------------------- |
@@ -51,17 +53,19 @@ user 级目录结构：
 ~/.barista/
   config.json          用户配置
   jdk.json             JDK registry（barista jdk 命令组维护）
+  maven.json           Maven registry（barista maven 命令组维护）
   toolchains/          barista 托管安装的工具链
     jdk/<name>/        barista jdk install 的安装位置
+    maven/<name>/      barista maven install 的安装位置
 ```
 
 ## Schema
 
 ```bash
-barista schema list                                # 列出内嵌 JSON Schema
-barista schema show repos|config|jdk               # 输出 schema 原文
-barista schema validate repos|config|jdk [file]    # 校验（config 默认校验 user + workspace 两级）
-                      [--scope user|workspace]
+barista schema list                                      # 列出内嵌 JSON Schema
+barista schema show repos|config|jdk|maven               # 输出 schema 原文
+barista schema validate repos|config|jdk|maven [file]    # 校验（config 默认校验 user + workspace 两级）
+                         [--scope user|workspace]
 ```
 
 供 AI Agent 与编辑器在线发现、校验配置。

@@ -25,6 +25,7 @@ CLI 端到端行为靠离线 e2e：临时目录建 bare 仓库作为 `file://` �
 ## 文档索引
 
 - [docs/architecture.md](docs/architecture.md)——目录结构与设计契约，**改动代码前必读**
+- [docs/commands.md](docs/commands.md)——CLI 命令参考，命令/flag 变更时同步更新
 
 ## 红线
 
