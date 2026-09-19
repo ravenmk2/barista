@@ -41,6 +41,7 @@ const (
 	CodeMavenNotManaged         = "MAVEN_NOT_MANAGED"
 	CodeMavenUninstallFailed    = "MAVEN_UNINSTALL_FAILED"
 	CodeMavenExecFailed         = "MAVEN_EXEC_FAILED"
+	CodeJavaExecFailed          = "JAVA_EXEC_FAILED"
 	CodeUsageError              = "USAGE_ERROR"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )

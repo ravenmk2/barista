@@ -31,6 +31,7 @@ func NewCmd(exit *int) *cobra.Command {
 		whichCmd(),
 		pathCmd(),
 		homeCmd(),
+		envCmd(),
 		discoverCmd(),
 		installCmd(),
 		uninstallCmd(),

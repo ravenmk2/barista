@@ -79,6 +79,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 | `list`                       | 列出已注册 JDK                                              |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
+| `env <major\|name>`           | 打印 JAVA_HOME/PATH 导出语句（`--shell sh\|cmd\|powershell`，缺省自动检测当前 shell，供 eval / CI 消费） |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
 | `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
 | `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace `.barista/properties.json` 的 `jdk` 键） |
@@ -91,6 +92,7 @@ barista git checkout feature/x --repo order-service --repo user-service
 - add：`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
+- env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
 - remove：直接注销，无确认、不删文件（幂等）
 - uninstall：仅作用于 managed 条目；确认契约为 TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
 
@@ -171,6 +173,38 @@ barista mvn [flags] -- <mvn args...>
 ```bash
 barista mvn -- clean install -DskipTests
 barista mvn --jdk 17 --dry-run -- -q validate
+```
+
+## java — 工作区感知的 java 执行器
+
+在当前目录用解析出的 JDK 直接运行 java，`--` 之后的参数原样透传。
+
+```txt
+barista java [flags] -- <java args...>
+```
+
+### flags
+
+| flag        | 说明                                                      |
+| ----------- | --------------------------------------------------------- |
+| `--jdk`     | JDK spec（注册名或 major 版本），覆盖所有配置层级         |
+| `--dry-run` | 打印解析出的 JDK 与完整命令行，不执行                     |
+
+### 解析链（高 → 低）
+
+- JDK：`--jdk` > repo `properties["jdk"]` > workspace properties.json `jdk` > ambient（PATH 中的 java，不动 JAVA_HOME/PATH）
+- 显式层级（flag/repo/workspace）解析不到注册 JDK 时响亮报 `JDK_NOT_FOUND`（exit 2，message 带来源），不静默回退
+- 无任何声明且 PATH 无 java 时报 `JDK_NOT_FOUND`（exit 2）
+
+### 其他行为
+
+- 解析到注册 JDK 时直接执行其 `bin/java`（Windows 为 `bin/java.exe`，不经 cmd 包装），子进程 JAVA_HOME 被替换为该 JDK
+- java 子进程非零退出时 barista exit 1；stdout/stderr 直接继承
+- 缺 `--` 直接给参数报 `USAGE_ERROR`（exit 2）；`--dry-run` 的 `--json` 输出含 jdk / bin / args / command 明细
+
+```bash
+barista java -- -version
+barista java --jdk 17 --dry-run -- -jar app.jar
 ```
 
 ## schema — 内置 JSON Schema 工具
