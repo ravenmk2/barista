@@ -23,14 +23,17 @@ var exitCode *int
 func NewCmd(exit *int) *cobra.Command {
 	exitCode = exit
 	cmd := &cobra.Command{
-		Use:   "mvn [--jdk spec] [--dry-run] -- <mvn args...>",
-		Short: "Run Maven with the workspace-aware JDK, settings.xml and local repo",
+		Use:                   "mvn [flags] -- <mvn args...>",
+		Short:                 "Run Maven with the workspace-aware JDK, settings.xml and local repo",
+		DisableFlagsInUseLine: true,
 		Long: "Run Maven in the current directory. Arguments after \"--\" are passed through verbatim.\n" +
 			"Resolution (high to low): JDK: --jdk > repo properties[\"maven.jdk\"] > workspace maven.jdk > user maven.json jdk > ambient.\n" +
 			"settings.xml: .barista/maven/settings.xml is injected as -s when present (skipped when you pass -s yourself).\n" +
 			"maven.repo.local: workspace property injected as -Dmaven.repo.local (skipped when you pass it yourself).\n" +
 			"startup: script (default) runs the bundled mvn/mvn.cmd wrapper; jar boots the classworlds jar with java directly,\n" +
 			"bypassing the wrapper (its quoting pitfalls) but also its extras (mavenrc hooks). Persistent: maven.startup property.",
+		Example: `  barista mvn -- clean install -DskipTests
+  barista mvn --jdk 17 --dry-run -- -q validate`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0

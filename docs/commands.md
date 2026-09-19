@@ -140,7 +140,7 @@ barista maven config
 在当前目录运行 Maven，`--` 之后的参数原样透传。
 
 ```txt
-barista mvn [--jdk spec] [--startup script|jar] [--dry-run] -- <mvn args...>
+barista mvn [flags] -- <mvn args...>
 ```
 
 ### flags
