@@ -42,6 +42,7 @@ const (
 	CodeMavenUninstallFailed    = "MAVEN_UNINSTALL_FAILED"
 	CodeMavenExecFailed         = "MAVEN_EXEC_FAILED"
 	CodeJavaExecFailed          = "JAVA_EXEC_FAILED"
+	CodeRepoRemoteMismatch      = "REPO_REMOTE_MISMATCH"
 	CodeUsageError              = "USAGE_ERROR"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )

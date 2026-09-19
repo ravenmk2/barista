@@ -39,6 +39,20 @@ func isGitRepo(ctx context.Context, dir string) bool {
 	return err == nil && strings.TrimSpace(out) == "true"
 }
 
+// IsGitRepo reports whether dir is inside a git work tree.
+func IsGitRepo(ctx context.Context, dir string) bool {
+	return isGitRepo(ctx, dir)
+}
+
+// OriginURL returns the fetch URL of the origin remote.
+func OriginURL(ctx context.Context, dir string) (string, error) {
+	out, err := run(ctx, dir, "remote", "get-url", "origin")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
 func currentBranch(ctx context.Context, dir string) string {
 	out, err := run(ctx, dir, "branch", "--show-current")
 	if err != nil {

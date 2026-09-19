@@ -67,29 +67,5 @@ func SetProperty(path, key, value string) error {
 		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot encode %s: %v", filepath.ToSlash(path), err)}
 	}
 	out = append(out, '\n')
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot create %s: %v", filepath.ToSlash(filepath.Dir(path)), err)}
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "properties.json.*")
-	if err != nil {
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(out); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		_ = os.Remove(path)
-		if err := os.Rename(tmpName, path); err != nil {
-			_ = os.Remove(tmpName)
-			return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot write %s: %v", filepath.ToSlash(path), err)}
-		}
-	}
-	return nil
+	return writeFileAtomic(path, out)
 }

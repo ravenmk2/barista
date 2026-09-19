@@ -65,6 +65,38 @@ barista git status --label java
 barista git checkout feature/x --repo order-service --repo user-service
 ```
 
+## repo — 工作区仓库清单管理
+
+管理 `<workspace>/.barista/repos.json`，需要在工作区内运行。
+
+| 命令              | 行为                                          |
+| ----------------- | --------------------------------------------- |
+| `add <url>`       | 注册新仓库到 repos.json 并克隆（一步完成）    |
+
+### add flags
+
+| flag         | 说明                                                        |
+| ------------ | ----------------------------------------------------------- |
+| `--name`     | 清单中的仓库名（缺省从 URL basename 推导，去 `.git`）       |
+| `--path`     | 检出路径（相对 workspace 根，缺省 `repos/<name>`）          |
+| `--label`    | 打标签供 `--label` 过滤（可重复）                           |
+| `--no-clone` | 只注册不克隆，之后用 `barista git clone` 补                 |
+
+### 要点
+
+- **先注册后克隆**：clone 失败时条目已在清单中（合法状态），重跑 `repo add` 自动跳过注册、只重试克隆——全程幂等
+- name 推导：取 URL 最后一段（`/` 或 `:` 分隔），去尾部 `/` 与 `.git`；推导不出时报 `USAGE_ERROR` 并提示 `--name`
+- URL 存储：以 `baseUrl` 为前缀的绝对 URL 自动剥前缀存为相对形式；传相对 URL 但清单无 `baseUrl` 报 `CONFIG_ERROR`
+- 幂等与冲突：name 已存在且 URL 等价（忽略尾部 `/`、`.git` 差异）→ 跳过注册继续克隆；name 存在但 URL 不同 → `REPO_EXISTS`（exit 2）
+- 目标路径已是 git 仓库时校验其 origin 与清单解析 URL 一致，不符报 `REPO_REMOTE_MISMATCH`（exit 1），不静默跳过
+- 写 repos.json 为原子写，保留手改的未知顶层字段与既有条目的未知字段；新条目追加到 `repos` 数组末尾
+- exit 0 成功 / 1 克隆或 origin 校验失败（此时已注册）/ 2 用法与配置错误
+
+```bash
+barista repo add git@github.com:org/order-service.git --label java
+barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
+```
+
 ## jdk — JDK 注册表管理
 
 注册表为 user 级 `~/.barista/jdk.json`。托管安装目录默认 `~/.barista/toolchains/jdk/`（jdk.json 顶层 `installDir` 字段，用 `barista jdk set-install-dir` 设置）。`use` 是 jdk 组唯一需要工作区的命令。

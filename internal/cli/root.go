@@ -8,6 +8,7 @@ import (
 	jdkcli "barista/internal/cli/jdk"
 	mavencli "barista/internal/cli/maven"
 	mvncli "barista/internal/cli/mvn"
+	repocli "barista/internal/cli/repo"
 )
 
 var ExitCode int
@@ -24,6 +25,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(mavencli.NewCmd(&ExitCode))
 	root.AddCommand(mvncli.NewCmd(&ExitCode))
 	root.AddCommand(javacli.NewCmd(&ExitCode))
+	root.AddCommand(repocli.NewCmd(&ExitCode))
 	root.AddCommand(schemaCmd())
 	return root
 }
