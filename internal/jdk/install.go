@@ -22,6 +22,7 @@ var providers = map[string]Provider{
 	"microsoft": microsoftProvider{},
 	"corretto":  correttoProvider{},
 	"zulu":      embeddedProvider{"zulu"},
+	"graalvm":   embeddedProvider{"graalvm"},
 }
 
 func ProviderFor(distro string) (Provider, bool) {

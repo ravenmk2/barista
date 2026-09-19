@@ -2,10 +2,15 @@ package jdk
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	"barista/internal/output"
@@ -102,4 +107,51 @@ func (p embeddedProvider) Available(context.Context) ([]AvailableRelease, *outpu
 		out[i] = AvailableRelease{Major: r.Major, Version: r.Version, LTS: r.LTS, Latest: r.Major == latest}
 	}
 	return out, nil
+}
+
+// ChecksumProvider is implemented by providers that pin a sha256 for each
+// archive (embedded data), letting install verify downloads without a
+// runtime metadata call.
+type ChecksumProvider interface {
+	ExpectedSHA256(major int, goos, goarch string) (string, bool)
+}
+
+func (p embeddedProvider) ExpectedSHA256(major int, goos, goarch string) (string, bool) {
+	releases, err := p.releases()
+	if err != nil {
+		return "", false
+	}
+	for _, r := range releases {
+		if r.Major != major {
+			continue
+		}
+		asset, ok := r.Assets[goos+"/"+goarch]
+		if !ok || asset.SHA256 == "" {
+			return "", false
+		}
+		return asset.SHA256, true
+	}
+	return "", false
+}
+
+// VerifySHA256 checks the file's sha256 against the hex-encoded want.
+func VerifySHA256(path, want string) *output.ErrInfo {
+	f, err := os.Open(path)
+	if err != nil {
+		return &output.ErrInfo{Code: output.CodeJDKDownloadFailed, Message: err.Error()}
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return &output.ErrInfo{Code: output.CodeJDKDownloadFailed, Message: err.Error()}
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if !strings.EqualFold(got, want) {
+		return &output.ErrInfo{
+			Code:    output.CodeJDKChecksumMismatch,
+			Message: fmt.Sprintf("sha256 mismatch: got %s, want %s", got, want),
+			Hint:    "the download may be corrupted; try again",
+		}
+	}
+	return nil
 }

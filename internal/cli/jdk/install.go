@@ -119,6 +119,17 @@ func installCmd() *cobra.Command {
 				failRes(&output.ErrInfo{Code: output.CodeJDKDownloadFailed, Message: err.Error()})
 				return nil
 			}
+			if cp, ok := prov.(jdk.ChecksumProvider); ok {
+				if sum, ok := cp.ExpectedSHA256(major, runtime.GOOS, runtime.GOARCH); ok {
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Dim("verifying sha256"))
+					}
+					if e := jdk.VerifySHA256(tmpPath, sum); e != nil {
+						failRes(e)
+						return nil
+					}
+				}
+			}
 			if !jsonOut {
 				fmt.Fprintln(os.Stderr, p.Dim("extracting to "+filepath.ToSlash(destDir)))
 			}

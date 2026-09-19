@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-19T13:47:42Z",
+  "generatedAt": "2026-09-19T14:11:40Z",
   "distros": {
     "zulu": [
       {
@@ -119,6 +119,193 @@
           },
           "darwin/arm64": {
             "url": "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-macosx_aarch64.tar.gz"
+          }
+        }
+      }
+    ],
+    "graalvm": [
+      {
+        "major": 17,
+        "version": "17.0.9",
+        "lts": true,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_macos-x64_bin.tar.gz",
+            "sha256": "543dd286d99c04788847ef6366f794c059a69e77added577916186371e206e33"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_macos-aarch64_bin.tar.gz",
+            "sha256": "3eccc4ffda01818172b7fc7cdf4379bc62ed7129ee30ca854c04da67057249c9"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_linux-x64_bin.tar.gz",
+            "sha256": "e47ba7229cef02393e19d5b8f46f7f1cab4829dd17bfe84d5431fc8ff0e22a96"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_linux-aarch64_bin.tar.gz",
+            "sha256": "c3281b21f5220c2f76cf6fa0d646bc42e2d729af2c022bb06e557a613ba16102"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_windows-x64_bin.zip",
+            "sha256": "285e045bfc0b87d2b61958fea97444c3c6c7e68fba3fdbbe146622328b52ec38"
+          }
+        }
+      },
+      {
+        "major": 20,
+        "version": "20.0.2",
+        "lts": false,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-20.0.2/graalvm-community-jdk-20.0.2_macos-x64_bin.tar.gz",
+            "sha256": "5e57fffa27282f27976a07d27611256ea4219f02756612fe500a5ff80ed5fc2a"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-20.0.2/graalvm-community-jdk-20.0.2_macos-aarch64_bin.tar.gz",
+            "sha256": "96e2227c4319ecb5eed755f8abb1411a56f51dd8f30e9770127bcd1cce2cd644"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-20.0.2/graalvm-community-jdk-20.0.2_linux-x64_bin.tar.gz",
+            "sha256": "941a85a690e7b1c4e1fcfac321561ca46033bba3ac4882dd15d4f45edd06726c"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-20.0.2/graalvm-community-jdk-20.0.2_linux-aarch64_bin.tar.gz",
+            "sha256": "6022709c124191da5087d0b0c62c3246943b3d5a386717c8d1af593637217028"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-20.0.2/graalvm-community-jdk-20.0.2_windows-x64_bin.zip",
+            "sha256": "457708cf7c5fbc88dc62f17f19223b62f29cc723243e6076a18953236e1a0899"
+          }
+        }
+      },
+      {
+        "major": 21,
+        "version": "21.0.2",
+        "lts": true,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_macos-x64_bin.tar.gz",
+            "sha256": "7a8aa93fa45d1721908477abf4732a32637d420ffcb66ada9fb6456440b0d9e1"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_macos-aarch64_bin.tar.gz",
+            "sha256": "515e3a93acc7e1938daba83eda4272e5495fd302d7cdd99ec7ebf408ed505ab7"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_linux-x64_bin.tar.gz",
+            "sha256": "b048069aaa3a99b84f5b957b162cc181a32a4330cbc35402766363c5be76ae48"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_linux-aarch64_bin.tar.gz",
+            "sha256": "a34be691ce68f0acf4655c7c6c63a9a49ed276a11859d7224fd94fc2f657cd7a"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_windows-x64_bin.zip",
+            "sha256": "e17b7bead097bf372a5c75df17815b0a2f30b777a019d25eff7706b21421f7fa"
+          }
+        }
+      },
+      {
+        "major": 22,
+        "version": "22.0.2",
+        "lts": false,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-22.0.2/graalvm-community-jdk-22.0.2_macos-x64_bin.tar.gz",
+            "sha256": "0512dda1b1ea569b2a6c3dc6671e102a4d5457e3b2dfa47bf656bd32893d12e4"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-22.0.2/graalvm-community-jdk-22.0.2_macos-aarch64_bin.tar.gz",
+            "sha256": "883dfd503f2bbf9cd824564763c49cafa6b3c5e9d8c024093962131b4ef5101f"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-22.0.2/graalvm-community-jdk-22.0.2_linux-x64_bin.tar.gz",
+            "sha256": "ebac1dd96a5e0fbcd1dd9804fa58815f146390a40aae966f02a8c26d1974364f"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-22.0.2/graalvm-community-jdk-22.0.2_linux-aarch64_bin.tar.gz",
+            "sha256": "28ca4c815fa68b86141d9dcf1a46c1f58f74dead41de9042de1202337bb014d9"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-22.0.2/graalvm-community-jdk-22.0.2_windows-x64_bin.zip",
+            "sha256": "107a37cea666c2ad6ad9eaa408b4041f822a24071a33c5057762ce48833e99a3"
+          }
+        }
+      },
+      {
+        "major": 23,
+        "version": "23.0.2",
+        "lts": false,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.2/graalvm-community-jdk-23.0.2_macos-x64_bin.tar.gz",
+            "sha256": "ec3eab5ac01c5bcfcc1fc9e790e5e044b908d4c51a15c38fcd54fb6d0d79ef3c"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.2/graalvm-community-jdk-23.0.2_macos-aarch64_bin.tar.gz",
+            "sha256": "a5a7ce32c445e66b73c4fe99b2e5002d35cc141825c863cb8bd066bebd451414"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.2/graalvm-community-jdk-23.0.2_linux-x64_bin.tar.gz",
+            "sha256": "0cf63e88153b759136947c14f0042c515ae1ff9abf346f143dc47af065b1d6dd"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.2/graalvm-community-jdk-23.0.2_linux-aarch64_bin.tar.gz",
+            "sha256": "70d0ee8cb1922fbfe5a5db6a93360f63bbf0bdf72a6ca1f9b00906e600628c19"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.2/graalvm-community-jdk-23.0.2_windows-x64_bin.zip",
+            "sha256": "6a358b759865f4c52fc97c3096a8ab8db86ea83b07b152b79809d2afb140f260"
+          }
+        }
+      },
+      {
+        "major": 24,
+        "version": "24.0.2",
+        "lts": false,
+        "assets": {
+          "darwin/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-24.0.2/graalvm-community-jdk-24.0.2_macos-x64_bin.tar.gz",
+            "sha256": "c59ed856d18dab156c54b2312e24668406050496670842864180ced31a1a76d3"
+          },
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-24.0.2/graalvm-community-jdk-24.0.2_macos-aarch64_bin.tar.gz",
+            "sha256": "1f5068d07746fe472963189692922a1db58115b6ceaa5d9105a7433b81c6d587"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-24.0.2/graalvm-community-jdk-24.0.2_linux-x64_bin.tar.gz",
+            "sha256": "6d62846c826ddb9307deec71e7661c26fa5a5e3985d7bb9005ea42163a390720"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-24.0.2/graalvm-community-jdk-24.0.2_linux-aarch64_bin.tar.gz",
+            "sha256": "c54d951a858791483d58270ecbc0946f28c4742c7fac74a4ebb2764bbf66d6f5"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-24.0.2/graalvm-community-jdk-24.0.2_windows-x64_bin.zip",
+            "sha256": "c3467af0acfbc4003e30d116bdeeb881071ae4346ccab8886a0439f1eb527794"
+          }
+        }
+      },
+      {
+        "major": 25,
+        "version": "25.0.4.1",
+        "lts": true,
+        "assets": {
+          "darwin/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_macos-aarch64_bin.tar.gz",
+            "sha256": "ebfab1d74420f355a459076162012d6835fa6068bd9d2f230f1fcaf7ee0dd923"
+          },
+          "linux/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_linux-x64_bin.tar.gz",
+            "sha256": "b2bc38d0c4141426eb44d0eefa3cc172c96faf92727d703b61541699128b6fc7"
+          },
+          "linux/arm64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_linux-aarch64_bin.tar.gz",
+            "sha256": "7e8a3fbc2e4c28566107039a298cef690d86a37599a8e50536fc5a65b7f1bd56"
+          },
+          "windows/amd64": {
+            "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_windows-x64_bin.zip",
+            "sha256": "770a0d78aba4c19bd40ee410ec82afbbee8e33fdd762e509006ac64e1007b4ce"
           }
         }
       }

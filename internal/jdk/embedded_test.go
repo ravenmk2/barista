@@ -2,8 +2,14 @@ package jdk
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"barista/internal/output"
 )
 
 func TestEmbeddedDataLoads(t *testing.T) {
@@ -66,5 +72,54 @@ func TestEmbeddedAvailable(t *testing.T) {
 	}
 	if _, e := (embeddedProvider{"nosuch"}).Available(context.Background()); e == nil {
 		t.Error("unknown distro should return JDK_AVAILABLE_FAILED")
+	}
+}
+
+func TestVerifySHA256(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "a.zip")
+	if err := os.WriteFile(p, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("payload"))
+	if e := VerifySHA256(p, hex.EncodeToString(sum[:])); e != nil {
+		t.Errorf("match: %v", e)
+	}
+	e := VerifySHA256(p, "0000")
+	if e == nil || e.Code != output.CodeJDKChecksumMismatch {
+		t.Errorf("mismatch: got %v", e)
+	}
+}
+
+func TestGraalVMEmbedded(t *testing.T) {
+	p := embeddedProvider{"graalvm"}
+	url, err := p.ArchiveURL(25, "windows", "amd64")
+	if err != nil || !strings.Contains(url, "graalvm-community-jdk") || !strings.HasSuffix(url, "_bin.zip") {
+		t.Errorf("windows/amd64 = %q, %v", url, err)
+	}
+	sum, ok := p.ExpectedSHA256(25, "windows", "amd64")
+	if !ok || len(sum) != 64 {
+		t.Errorf("graalvm 25 windows/amd64 sha256 = %q, %v", sum, ok)
+	}
+	if _, ok := p.ExpectedSHA256(25, "plan9", "amd64"); ok {
+		t.Error("unsupported platform should have no checksum")
+	}
+	releases, e := p.Available(context.Background())
+	if e != nil || len(releases) == 0 {
+		t.Fatalf("Available: %v", e)
+	}
+	var r17 AvailableRelease
+	for _, r := range releases {
+		if r.Major == 17 {
+			r17 = r
+		}
+	}
+	if r17.Version == "" || !r17.LTS {
+		t.Errorf("graalvm 17 = %+v", r17)
+	}
+}
+
+func TestZuluNoChecksum(t *testing.T) {
+	if _, ok := (embeddedProvider{"zulu"}).ExpectedSHA256(17, "windows", "amd64"); ok {
+		t.Error("zulu data carries no sha256")
 	}
 }

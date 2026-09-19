@@ -32,6 +32,7 @@ const (
 	CodeJDKNotManaged           = "JDK_NOT_MANAGED"
 	CodeJDKUninstallFailed      = "JDK_UNINSTALL_FAILED"
 	CodeJDKAvailableFailed      = "JDK_AVAILABLE_FAILED"
+	CodeJDKChecksumMismatch     = "JDK_CHECKSUM_MISMATCH"
 	CodeMavenExists             = "MAVEN_EXISTS"
 	CodeMavenNotFound           = "MAVEN_NOT_FOUND"
 	CodeNotAMaven               = "NOT_A_MAVEN"
