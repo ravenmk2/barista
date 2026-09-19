@@ -142,9 +142,9 @@ func (p lipPalette) Branch(s string) string {
 	case classDev:
 		return p.Blue(s)
 	case classFeature:
-		return p.Cyan(s)
-	case classRelease:
 		return p.Yellow(s)
+	case classRelease:
+		return p.Cyan(s)
 	case classFix:
 		return p.Magenta(s)
 	}
