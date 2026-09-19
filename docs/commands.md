@@ -161,6 +161,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 | `discover`                   | 扫描 JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 并注册 |
 | `add <name> <path>`          | 注册已安装的 JDK（起 `java` 探测版本与发行版；`javac` 仅做存在性检查） |
 | `install <distro><major>`    | 下载并安装到托管目录（当前支持 temurin，走 Adoptium API）   |
+| `available`                  | 列出远端可安装的 JDK（major / 最新版本 / LTS / 是否已装）   |
 | `list`                       | 列出已注册 JDK（别名 `ls`）                                 |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
 | `path` / `home <major\|name>` | 只打印路径（`which --pathonly` 的快捷方式）                 |
@@ -176,6 +177,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符报 USAGE_ERROR（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
+- available：查询 Adoptium API 列出可安装项（用户显式调用才联网）；按 major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；版本查询失败的 major 仍列出、version 置空；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
 - remove：直接注销，无确认、不删文件（幂等），并级联清理 jdk.json 中所有指向该 JDK 的 defaults
@@ -318,7 +320,7 @@ barista doctor [--deep]
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。是唯一会主动联网的命令，其他命令永不被动检测更新。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。主动联网的命令只有 `upgrade` 与 `jdk available`（均为用户显式调用才联网），其他命令永不被动检测更新。
 
 ```txt
 barista upgrade [--check] [--yes]

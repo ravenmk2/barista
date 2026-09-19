@@ -54,7 +54,7 @@ func installCmd() *cobra.Command {
 				failRes(&output.ErrInfo{
 					Code:    output.CodeJDKUnsupportedDistro,
 					Message: fmt.Sprintf("unsupported distro %q", distro),
-					Hint:    "supported: " + strings.Join(jdk.SupportedDistros(), ", "),
+					Hint:    "supported: " + strings.Join(jdk.SupportedDistros(), ", ") + "; list releases: barista jdk available",
 				})
 				return nil
 			}

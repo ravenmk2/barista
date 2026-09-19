@@ -1,16 +1,20 @@
 package jdk
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
+
+	"barista/internal/output"
 )
 
 type Provider interface {
 	ArchiveURL(major int, goos, goarch string) (string, error)
+	Available(ctx context.Context) ([]AvailableRelease, *output.ErrInfo)
 }
 
 var providers = map[string]Provider{
