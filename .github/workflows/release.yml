@@ -37,22 +37,7 @@ jobs:
         run: sha256sum * > checksums.txt
 
       - name: Generate manifest
-        working-directory: dist
-        run: |
-          {
-            printf '{\n  "schemaVersion": 1,\n  "version": "%s",\n  "publishedAt": "%s",\n  "assets": {' \
-              "${GITHUB_REF_NAME}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            sep=$'\n'
-            for f in barista-*; do
-              sha=$(sha256sum "$f" | cut -d' ' -f1)
-              size=$(stat -c%s "$f")
-              platform="${f#barista-}"; platform="${platform%.exe}"
-              printf '%s    "%s/%s": {"file": "%s", "sha256": "%s", "size": %s}' \
-                "$sep" "${platform%-*}" "${platform#*-}" "$f" "$sha" "$size"
-              sep=$',\n'
-            done
-            printf '\n  }\n}\n'
-          } > manifest.json
+        run: python3 scripts/genmanifest.py dist "${GITHUB_REF_NAME}" dist/manifest.json
 
       - name: Validate manifest
         run: go run ./cmd/barista schema validate manifest dist/manifest.json
