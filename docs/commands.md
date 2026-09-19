@@ -239,6 +239,29 @@ barista java -- -version
 barista java --jdk 17 --dry-run -- -jar app.jar
 ```
 
+## doctor — 环境体检
+
+诊断 user 级环境，在 workspace 内时自动加查 workspace 级（不在 workspace 不算错误）。只诊断不修复，每个 failed 检查带修复 hint。
+
+```txt
+barista doctor [--deep]
+```
+
+| flag     | 说明                                                              |
+| -------- | ----------------------------------------------------------------- |
+| `--deep` | 追加起子进程的检查：重新 probe 每个 JDK（`java -version` 比对注册版本）、逐 repo 校验 origin 与清单 URL 一致 |
+
+### 检查项
+
+- user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；properties 与 per-repo properties 里的 `jdk` / `maven.default` / `maven.startup` 可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
+
+### 要点
+
+- 检查并发执行（`--parallel` 生效），结果按声明顺序输出
+- 结果三态：ok / skipped（不适用或信息项，reason 在 detail）/ failed（带 hint）；exit 0 全过 / 1 有 failed / 2 用法错误
+- `--json` 每项 detail 含 `scope`（user|workspace）与 `check`（检查 id，如 `jdkInstall` / `repoCheckout`）
+
 ## schema — 内置 JSON Schema 工具
 
 供 AI Agent 与编辑器在线发现、校验配置。schema 单一数据源在 `schemas/` 包。

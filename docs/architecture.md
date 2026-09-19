@@ -7,7 +7,7 @@ barista 的目录结构与设计契约，改动代码前必读。
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + schema.go
+  cli/              cobra 命令层：root（--json/--parallel）+ git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + schema.go
   workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
   jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较
@@ -46,6 +46,8 @@ maven 命令组镜像 jdk 的骨架与契约（自带执行骨架、tabwriter �
 `barista mvn` 是**执行器**而非管理命令（cli/mvn/，不走 runner/Result 契约）：`barista mvn [flags] -- <mvn args>`，`--` 后的参数原样透传（缺 `--` 直接给 goal 报 USAGE_ERROR exit 2）。环境组装是纯函数 `planExec`（plan.go，同包单测）：maven 安装按 `workspace maven.default property > maven.json default` 解析；JDK 按 `--jdk > cwd 命中 repo 的 properties["jdk"] > workspace jdk > maven.json jdk > 环境原样`，显式指定的任一级解析失败响亮报 JDK_NOT_FOUND（exit 2，message 带来源），命中则只对子进程设 JAVA_HOME。注入规则：`.barista/maven/settings.xml` 存在即注入 `-s`（同目录 `settings-security.xml` 注入 `-Dsettings.security`）；workspace property `maven.repo.local` 注入 `-Dmaven.repo.local`（相对路径锚定 workspace root）；**透传参数已含 `-s`/`--settings`/对应 `-D` 时跳过该注入**（用户显式优先）。执行：Unix 直接 `bin/mvn`，Windows 经 `cmd /c bin/mvn.cmd`；stdin/stdout/stderr 直接挂父进程（流式透传，无 TUI/渲染层）；mvn 非零退出 → exit 1，barista 自身配置错误 → exit 2 + 机器可读码；`--json` 只影响 exec 前的错误（ErrorEnvelope）与 --dry-run 输出，exec 后输出归属 mvn。workspace 发现是机会主义的（无 workspace = 跳过 repo/workspace 两级覆盖，纯 user 级默认透传）。
 
 `barista java` 是同型执行器（cli/java/，镜像 cli/mvn 骨架）：`barista java [--jdk spec] [--dry-run] -- <java args>`。JDK 解析链 `--jdk > repo properties["jdk"] > workspace jdk > ambient（PATH 查找 java）`，无 maven.json jdk 一级；显式级别失败响亮报 JDK_NOT_FOUND（exit 2），ambient 也落空同样 JDK_NOT_FOUND。命中注册 JDK 时直接 exec 其 `bin/java`（Windows `bin/java.exe`，不经 cmd 包装），只对子进程设 JAVA_HOME；java 非零退出 → exit 1，启动失败 → JAVA_EXEC_FAILED（exit 2）。环境组装同为纯函数 planExec（ambient 的 PATH 查找在 buildPlan 完成、以 ambientBin 注入，保持 planExec 可测）。
+
+`barista doctor` 是体检命令（cli/doctor/）：只诊断不修复，每项检查一个 Result（ok / skipped 信息项带 reason / failed 带修复 hint），浅查项装配期同步执行，probe 与 repo 检查走 runner 并发；始终查 user 级（git on PATH、JAVA_HOME 有效性、config/jdk/maven registry 可解析性与引用完整性——defaults/default/jdk/installDir，Maven 条目版本用纯文件系统 probe 即时比对），机会主义加查 workspace 级（.barista 可加载、repo 检出存在、properties 与 per-repo properties 的 jdk/maven.default/maven.startup 可解析、settings.xml 存在性）；`--deep` 追加 JDK 重 probe（起 java 子进程比对注册版本）与 repo origin 对清单 URL 的归一化比对。文本按 scope 分组自排版（不复用绑定 git 语义的 TextRenderer），JSON 走 Envelope（detail 含 scope/check）。exit 0 全过 / 1 有 failed / 2 用法错误。
 
 启动模式（launch.go）：`--startup` > repo `properties["maven.startup"]` > workspace `properties["maven.startup"]` > 默认 `script`；非法值报 CONFIG_ERROR。`script` 即上述包装脚本路径。`jar` 绕过包装脚本直启 java（消除 `cmd /c` 二次解析对 `%`/`&`/`|` 参数的变形风险，双平台同一代码路径），复刻 mvn 脚本契约（3.6–3.9 实测同构）：java 取 JDK 路径的 `bin/java`（ambient 时 PATH 查找）、glob `boot/plexus-classworlds-*.jar` 恰一个 + `bin/m2.conf` 存在（否则 MAVEN_EXEC_FAILED，hint 回退 `--startup script`）、basedir 上爬 `.mvn`（感知 `-f`/`--file`，`MAVEN_BASEDIR` env 优先，落空回 cwd）、读 `.mvn/jvm.config`、透传 `MAVEN_OPTS`/`MAVEN_DEBUG_OPTS`、`MAVEN_ARGS` 仅 ≥3.9 追加、`-Dlibrary.jansi.path` 在 `lib/jansi-native` 存在时设置。差异声明：jar 模式不执行 `mavenrc_pre/post` 钩子。
 
