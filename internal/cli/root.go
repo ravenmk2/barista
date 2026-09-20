@@ -19,7 +19,7 @@ var ExitCode int
 func NewRootCmd(version string) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "barista",
-		Short: "Multi-repo workspace and dev environment manager",
+		Short: "Multi-repo workspace and dev environment manager (" + version + ")",
 	}
 	root.PersistentFlags().Bool("json", false, "output results as JSON")
 	root.PersistentFlags().Int("parallel", 10, "max concurrent repo operations")
