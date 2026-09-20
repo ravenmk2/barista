@@ -22,7 +22,7 @@ func NewCmd(exit *int) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "init [path]",
 		ValidArgsFunction: comp.Dirs,
-		Short:             "Bootstrap a barista workspace (.barista/repos.json), optionally importing existing checkouts",
+		Short:             "Bootstrap a barista workspace",
 		Long: "Create .barista/repos.json in the target directory (default: current directory).\n" +
 			"An existing repos.json is never overwritten. With --scan, git checkouts up to two levels\n" +
 			"below the target (e.g. repos/<name>) are imported with their origin URLs; entries whose\n" +

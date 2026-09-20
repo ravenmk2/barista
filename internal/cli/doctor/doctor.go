@@ -24,7 +24,7 @@ func NewCmd(exit *int) *cobra.Command {
 	exitCode = exit
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Health-check the barista environment (user level, plus workspace level when inside one)",
+		Short: "Health-check the barista environment",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			*exitCode = 0
