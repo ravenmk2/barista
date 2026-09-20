@@ -106,6 +106,58 @@ func AddRepo(root, name, url, path string, labels []string) (repo Repo, appended
 	return repo, true, nil
 }
 
+// RemoveRepo drops the named entry from <root>/.barista/repos.json,
+// preserving unknown top-level keys and the raw bytes of remaining entries.
+// removed is false when no entry with that name exists.
+func RemoveRepo(root, name string) (repo Repo, removed bool, err error) {
+	p := filepath.Join(root, ".barista", "repos.json")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return repo, false, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot read %s: %v", filepath.ToSlash(p), err)}
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(data, &top); err != nil {
+		return repo, false, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("invalid %s: %v", filepath.ToSlash(p), err)}
+	}
+	var entries []json.RawMessage
+	if raw, ok := top["repos"]; ok {
+		if err := json.Unmarshal(raw, &entries); err != nil {
+			return repo, false, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("invalid %s: repos must be an array", filepath.ToSlash(p))}
+		}
+	}
+	kept := make([]json.RawMessage, 0, len(entries))
+	for _, raw := range entries {
+		var existing Repo
+		if err := json.Unmarshal(raw, &existing); err != nil || existing.Name == "" {
+			kept = append(kept, raw)
+			continue
+		}
+		if existing.Name == name && !removed {
+			repo = existing
+			removed = true
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	if !removed {
+		return repo, false, nil
+	}
+	arr, err := json.Marshal(kept)
+	if err != nil {
+		return repo, false, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot encode %s: %v", filepath.ToSlash(p), err)}
+	}
+	top["repos"] = arr
+	out, err := json.MarshalIndent(top, "", "  ")
+	if err != nil {
+		return repo, false, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot encode %s: %v", filepath.ToSlash(p), err)}
+	}
+	out = append(out, '\n')
+	if err := writeFileAtomic(p, out); err != nil {
+		return repo, false, err
+	}
+	return repo, true, nil
+}
+
 func writeFileAtomic(path string, out []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("cannot create %s: %v", filepath.ToSlash(filepath.Dir(path)), err)}

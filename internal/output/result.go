@@ -12,6 +12,8 @@ const (
 
 const (
 	CodeRepoExists              = "REPO_EXISTS"
+	CodeRepoNotFound            = "REPO_NOT_FOUND"
+	CodeRepoDeleteFailed        = "REPO_DELETE_FAILED"
 	CodeNotCloned               = "NOT_CLONED"
 	CodeDirtyWorktree           = "DIRTY_WORKTREE"
 	CodeNothingToPush           = "NOTHING_TO_PUSH"

@@ -42,7 +42,7 @@ schemas/            JSON Schema 单一数据源（包即数据目录，同目录
 
 核心契约：**cli 产出 `[]Task` → runner 产出 `[]Result` → renderer 只消费 Result**。renderer 不得触碰 git 逻辑。新增功能域（jdk、tool）时各自实现 Task，runner 和 output 不得为此修改。
 
-repo 命令组（cli/repo/）管理工作区清单 repos.json，是唯一**写** repos.json 的入口（`init --scan` 的导入也复用同一 AddRepo 路径）：自带轻骨架（单仓库操作不走 runner/panel），`repo add <url>` 先注册后克隆——注册走 `workspace.AddRepo`（原子写，保留未知顶层字段与既有条目原始字节，baseUrl 前缀自动剥成相对存储；name 存在且 URL 等价 → 幂等跳过，URL 不同 → REPO_EXISTS exit 2），克隆复用 `gitrun.Clone`（目标已是 git 仓库先校验 origin 与 ResolvedURL 一致，不符报 REPO_REMOTE_MISMATCH exit 1）；clone 失败留下"已注册未检出"的合法状态，重跑自动续 clone。URL 等价比较统一走 `workspace.NormalizeURL`（去尾部 `/` 与 `.git`）。
+repo 命令组（cli/repo/）管理工作区清单 repos.json，是唯一**写** repos.json 的入口（`init --scan` 的导入也复用同一 AddRepo 路径）：自带轻骨架（单仓库操作不走 runner/panel），`repo add <url>` 先注册后克隆——注册走 `workspace.AddRepo`（原子写，保留未知顶层字段与既有条目原始字节，baseUrl 前缀自动剥成相对存储；name 存在且 URL 等价 → 幂等跳过，URL 不同 → REPO_EXISTS exit 2），克隆复用 `gitrun.Clone`（目标已是 git 仓库先校验 origin 与 ResolvedURL 一致，不符报 REPO_REMOTE_MISMATCH exit 1）；clone 失败留下"已注册未检出"的合法状态，重跑自动续 clone。URL 等价比较统一走 `workspace.NormalizeURL`（去尾部 `/` 与 `.git`）。`repo list` 只读：按声明顺序列出清单条目，检出状态以 `<path>/.git` 存在性判定（不起子进程）；`repo remove` 经 `workspace.RemoveRepo` 注销条目（同一原子写契约），默认保留检出，`--delete` 仅当目标是 git 检出才删目录，确认契约同 uninstall（TTY 询问 / 非 TTY CONFIRMATION_REQUIRED / `--yes`）。
 
 `barista init [path]`（cli/init/）引导新工作区：`workspace.Init` 创建 `.barista/repos.json` skeleton（已存在永不覆盖，报 already initialized），目标路径不存在报 CONFIG_ERROR；`--scan` 经 `workspace.ScanCheckouts` 扫两层内（`*/.git`、`repos/*/.git`，跳过隐藏目录与 .barista）的检出，按 origin URL 逐条 AddRepo 导入（无 origin / 已注册 / name 冲突均跳过并记录原因），导入的 URL 同样走 baseUrl 转相对。
 

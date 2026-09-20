@@ -56,7 +56,7 @@ barista completion powershell >> $PROFILE
 - `mvn --jdk` / `java --jdk`：JDK spec
 - `jdk env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
 - `jdk download --os` / `--arch`：linux/darwin/windows 与 amd64/arm64 静态枚举；`--output`：目录
-- `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录
+- `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录；`repo remove` 第一段：清单中的仓库名
 
 ## init — 工作区引导
 
@@ -126,6 +126,8 @@ barista git checkout feature/x --repo order-service --repo user-service
 | 命令              | 行为                                          |
 | ----------------- | --------------------------------------------- |
 | `add <url>`       | 注册新仓库到 repos.json 并克隆（一步完成）    |
+| `list`            | 按声明顺序列出清单仓库及检出状态（别名 `ls`） |
+| `remove <name>`   | 注销清单条目（默认保留检出；`--delete` 连带删除） |
 
 ### add flags
 
@@ -149,6 +151,24 @@ barista git checkout feature/x --repo order-service --repo user-service
 ```bash
 barista repo add git@github.com:org/order-service.git --label java
 barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
+```
+
+### list 要点
+
+- 按 repos.json 声明顺序输出；检出状态用 `<path>/.git` 存在性判定（不起子进程、不联网），未检出标记 `not cloned`
+- text 列为 NAME / PATH / URL（resolvedUrl）/ LABELS / CHECKOUT；JSON detail 含 `url` / `resolvedUrl` / `cloned` 及可选的 `labels` / `defaultBranch` / `properties`
+- exit 0；无清单条目时 text 打印提示、JSON 为空 results
+
+### remove 要点
+
+- 默认仅注销清单条目，保留磁盘检出，无确认（同 `jdk remove` 语义）；name 不在清单报 `REPO_NOT_FOUND`（exit 1）
+- `--delete` 连带删除检出目录：仅当目标是 git 检出（`.git` 存在）才删，防止误删普通目录（不符报 `NOT_CLONED` exit 1）；确认契约同 uninstall——TTY 询问 / 非 TTY `CONFIRMATION_REQUIRED`（exit 2）/ `--yes` 直通；TTY 下回答 no 标记 skipped/aborted
+- 写 repos.json 为原子写，保留未知顶层字段与其余条目的原始字节
+- exit 0 成功（含 TTY 取消）/ 1 未找到条目或删除失败 / 2 用法、配置与确认类错误
+
+```bash
+barista repo list
+barista repo remove order-service --delete --yes
 ```
 
 ## jdk — JDK 注册表管理
