@@ -241,7 +241,7 @@ barista mvn [flags] -- <mvn args...>
 | flag        | 说明                                                          |
 | ----------- | ------------------------------------------------------------- |
 | `--jdk`     | JDK spec（注册名或 major 版本），覆盖所有配置层级             |
-| `--startup` | 启动方式：`script`（默认，mvn/mvn.cmd wrapper）或 `jar`（直接 java 启动 classworlds jar，绕开 wrapper 的引号陷阱，但也跳过 mavenrc 钩子） |
+| `--launch`  | 启动方式：`script`（默认，mvn/mvn.cmd wrapper）或 `java`（直接 java 启动 classworlds jar，绕开 wrapper 的引号陷阱，但也跳过 mavenrc 钩子） |
 | `--dry-run` | 打印解析出的环境与完整命令行，不执行                          |
 
 ### 解析链（高 → 低）
@@ -250,13 +250,13 @@ barista mvn [flags] -- <mvn args...>
 - JDK：`--jdk` > repo `properties["jdk"]` > workspace properties.json `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
 - settings.xml：存在 `.barista/maven/settings.xml` 时注入 `-s`（自行传 `-s`/`--settings` 则跳过）；同目录 `settings-security.xml` 存在时配套注入 `-Dsettings.security`（自行传 `-s`/`--settings` 或 `-Dsettings.security` 则跳过）
 - 本地仓库：workspace properties.json `maven.repo.local` 注入 `-Dmaven.repo.local`（自行传则跳过）；相对路径基于 workspace 根，支持 `~` 展开
-- startup：`--startup` > repo `maven.startup` > workspace properties.json `maven.startup` > `script`
+- launch：`--launch` > repo `maven.launch` > workspace properties.json `maven.launch` > `script`
 
 ### 其他行为
 
 - 解析到 JDK 时子进程 JAVA_HOME 被替换为该 JDK
 - Maven 子进程非零退出时 barista exit 1；stdout/stderr 直接继承
-- `--dry-run` 的 `--json` 输出含 maven / jdk / startup / args / command 等解析明细
+- `--dry-run` 的 `--json` 输出含 maven / jdk / launch / args / command 等解析明细
 
 ```bash
 barista mvn -- clean install -DskipTests
@@ -310,7 +310,7 @@ barista doctor [--deep]
 ### 检查项
 
 - user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.startup` 与 per-repo properties 的 `jdk` / `maven.startup`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
 
 ### 要点
 
@@ -407,7 +407,7 @@ git 命令组（`barista git status --json`）：
 {
   "maven": { "name": "maven-3.9", "version": "3.9.9", "home": "...", "bin": "...", "source": "user" },
   "jdk": { "spec": "17", "name": "temurin17", "version": "17.0.13", "javaHome": "...", "source": "workspace" },
-  "startup": { "value": "script", "source": "default" },
+  "launch": { "value": "script", "source": "default" },
   "args": ["clean", "install"],
   "command": "cmd /c .../bin/mvn.cmd clean install"
 }

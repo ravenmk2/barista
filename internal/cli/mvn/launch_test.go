@@ -30,14 +30,14 @@ func fakeMavenHome(t *testing.T) string {
 	return home
 }
 
-func jarInput(t *testing.T) planInput {
+func javaInput(t *testing.T) planInput {
 	t.Helper()
 	mavenReg, jdkReg := testRegs()
 	mavenReg.Installations[0].Path = fakeMavenHome(t)
 	in := planInput{
 		cwd:         t.TempDir(),
 		goos:        "linux",
-		startupFlag: "jar",
+		launchFlag:  "java",
 		mavenReg:    mavenReg,
 		jdkReg:      jdkReg,
 		passthrough: []string{"clean"},
@@ -45,43 +45,43 @@ func jarInput(t *testing.T) planInput {
 	return in
 }
 
-func TestResolveStartup(t *testing.T) {
-	repo := &workspace.Repo{Name: "app", Path: "repos/app", Properties: map[string]string{"maven.startup": "jar"}}
+func TestResolveLaunch(t *testing.T) {
+	repo := &workspace.Repo{Name: "app", Path: "repos/app", Properties: map[string]string{"maven.launch": "java"}}
 
 	t.Run("default is script", func(t *testing.T) {
-		spec, src, e := resolveStartup(planInput{}, nil)
+		spec, src, e := resolveLaunch(planInput{}, nil)
 		if e != nil || spec != "script" || src != "default" {
 			t.Errorf("want script/default, got %s/%s %v", spec, src, e)
 		}
 	})
 
 	t.Run("flag beats repo and workspace", func(t *testing.T) {
-		in := planInput{startupFlag: "script", props: workspace.Properties{"maven.startup": "jar"}}
-		spec, src, e := resolveStartup(in, repo)
+		in := planInput{launchFlag: "script", props: workspace.Properties{"maven.launch": "java"}}
+		spec, src, e := resolveLaunch(in, repo)
 		if e != nil || spec != "script" || src != "flag" {
 			t.Errorf("want script/flag, got %s/%s %v", spec, src, e)
 		}
 	})
 
 	t.Run("repo beats workspace", func(t *testing.T) {
-		in := planInput{props: workspace.Properties{"maven.startup": "script"}}
-		spec, src, e := resolveStartup(in, repo)
-		if e != nil || spec != "jar" || src != "repo" {
-			t.Errorf("want jar/repo, got %s/%s %v", spec, src, e)
+		in := planInput{props: workspace.Properties{"maven.launch": "script"}}
+		spec, src, e := resolveLaunch(in, repo)
+		if e != nil || spec != "java" || src != "repo" {
+			t.Errorf("want java/repo, got %s/%s %v", spec, src, e)
 		}
 	})
 
 	t.Run("workspace property", func(t *testing.T) {
-		in := planInput{props: workspace.Properties{"maven.startup": "jar"}}
-		spec, src, e := resolveStartup(in, nil)
-		if e != nil || spec != "jar" || src != "workspace" {
-			t.Errorf("want jar/workspace, got %s/%s %v", spec, src, e)
+		in := planInput{props: workspace.Properties{"maven.launch": "java"}}
+		spec, src, e := resolveLaunch(in, nil)
+		if e != nil || spec != "java" || src != "workspace" {
+			t.Errorf("want java/workspace, got %s/%s %v", spec, src, e)
 		}
 	})
 
 	t.Run("invalid value is loud", func(t *testing.T) {
-		in := planInput{startupFlag: "warp"}
-		_, _, e := resolveStartup(in, nil)
+		in := planInput{launchFlag: "warp"}
+		_, _, e := resolveLaunch(in, nil)
 		if e == nil || e.Code != output.CodeConfigError {
 			t.Fatalf("want CONFIG_ERROR, got %+v", e)
 		}
@@ -91,19 +91,19 @@ func TestResolveStartup(t *testing.T) {
 	})
 }
 
-func TestJarLaunchHappyPath(t *testing.T) {
-	in := jarInput(t)
+func TestJavaLaunchHappyPath(t *testing.T) {
+	in := javaInput(t)
 	in.jdkFlag = "17"
 	p, e := planExec(in)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if p.startup != "jar" || p.startupSrc != "flag" {
-		t.Errorf("want jar/flag, got %s/%s", p.startup, p.startupSrc)
+	if p.mode != "java" || p.modeSrc != "flag" {
+		t.Errorf("want java/flag, got %s/%s", p.mode, p.modeSrc)
 	}
 	ls := p.launch
 	if ls.viaCmd {
-		t.Error("jar mode must not go through cmd")
+		t.Error("java mode must not go through cmd")
 	}
 	wantJava := filepath.Join("/j/17", "bin", javaExeName("linux"))
 	if ls.bin != wantJava {
@@ -133,8 +133,8 @@ func TestJarLaunchHappyPath(t *testing.T) {
 	}
 }
 
-func TestJarLaunchAmbientJdk(t *testing.T) {
-	p, e := planExec(jarInput(t))
+func TestJavaLaunchAmbientJdk(t *testing.T) {
+	p, e := planExec(javaInput(t))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -143,9 +143,9 @@ func TestJarLaunchAmbientJdk(t *testing.T) {
 	}
 }
 
-func TestJarLaunchBootJarErrors(t *testing.T) {
+func TestJavaLaunchBootJarErrors(t *testing.T) {
 	t.Run("missing jar", func(t *testing.T) {
-		in := jarInput(t)
+		in := javaInput(t)
 		home := in.mavenReg.Installations[0].Path
 		if err := os.Remove(filepath.Join(home, "boot", "plexus-classworlds-2.7.0.jar")); err != nil {
 			t.Fatal(err)
@@ -154,13 +154,13 @@ func TestJarLaunchBootJarErrors(t *testing.T) {
 		if e == nil || e.Code != output.CodeMavenExecFailed {
 			t.Fatalf("want MAVEN_EXEC_FAILED, got %+v", e)
 		}
-		if !strings.Contains(e.Hint, "--startup script") {
+		if !strings.Contains(e.Hint, "--launch script") {
 			t.Errorf("hint must offer the wrapper fallback, got %q", e.Hint)
 		}
 	})
 
 	t.Run("two jars", func(t *testing.T) {
-		in := jarInput(t)
+		in := javaInput(t)
 		home := in.mavenReg.Installations[0].Path
 		extra := filepath.Join(home, "boot", "plexus-classworlds-2.8.0.jar")
 		if err := os.WriteFile(extra, []byte("x"), 0o644); err != nil {
@@ -173,7 +173,7 @@ func TestJarLaunchBootJarErrors(t *testing.T) {
 	})
 
 	t.Run("missing m2.conf", func(t *testing.T) {
-		in := jarInput(t)
+		in := javaInput(t)
 		home := in.mavenReg.Installations[0].Path
 		if err := os.Remove(filepath.Join(home, "bin", "m2.conf")); err != nil {
 			t.Fatal(err)
@@ -269,12 +269,12 @@ func TestSupportsMavenArgs(t *testing.T) {
 	}
 }
 
-func TestJarLaunchEnvInjection(t *testing.T) {
+func TestJavaLaunchEnvInjection(t *testing.T) {
 	t.Setenv("MAVEN_OPTS", "-Xmx4g -Dstyle.color=always")
 	t.Setenv("MAVEN_ARGS", "--show-version")
 
 	t.Run("maven 3.9 appends MAVEN_OPTS and MAVEN_ARGS", func(t *testing.T) {
-		in := jarInput(t)
+		in := javaInput(t)
 		p, e := planExec(in)
 		if e != nil {
 			t.Fatal(e)
@@ -290,7 +290,7 @@ func TestJarLaunchEnvInjection(t *testing.T) {
 	})
 
 	t.Run("maven 3.8 ignores MAVEN_ARGS", func(t *testing.T) {
-		in := jarInput(t)
+		in := javaInput(t)
 		in.mavenReg.Installations = append(in.mavenReg.Installations, maven.Entry{Name: "maven-3.8", Version: "3.8.1", Path: in.mavenReg.Installations[0].Path})
 		in.mavenReg.Default = "maven-3.8"
 		p, e := planExec(in)

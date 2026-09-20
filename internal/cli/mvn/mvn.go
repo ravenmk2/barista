@@ -31,8 +31,8 @@ func NewCmd(exit *int) *cobra.Command {
 			"Resolution (high to low): JDK: --jdk > repo properties[\"jdk\"] > workspace jdk > user maven.json jdk > ambient.\n" +
 			"settings.xml: .barista/maven/settings.xml is injected as -s when present (skipped when you pass -s yourself).\n" +
 			"maven.repo.local: workspace property injected as -Dmaven.repo.local (skipped when you pass it yourself).\n" +
-			"startup: script (default) runs the bundled mvn/mvn.cmd wrapper; jar boots the classworlds jar with java directly,\n" +
-			"bypassing the wrapper (its quoting pitfalls) but also its extras (mavenrc hooks). Persistent: maven.startup property.",
+			"launch: script (default) runs the bundled mvn/mvn.cmd wrapper; java boots the classworlds jar with java directly,\n" +
+			"bypassing the wrapper (its quoting pitfalls) but also its extras (mavenrc hooks). Persistent: maven.launch property.",
 		Example: `  barista mvn -- clean install -DskipTests
   barista mvn --jdk 17 --dry-run -- -q validate`,
 		Args: cobra.ArbitraryArgs,
@@ -48,12 +48,12 @@ func NewCmd(exit *int) *cobra.Command {
 				return nil
 			}
 			jdkFlag, _ := cmd.Flags().GetString("jdk")
-			startupFlag, _ := cmd.Flags().GetString("startup")
+			launchFlag, _ := cmd.Flags().GetString("launch")
 			p, ok := palette(cmd)
 			if !ok {
 				return nil
 			}
-			plan, e := buildPlan(cmd, jdkFlag, startupFlag, args)
+			plan, e := buildPlan(cmd, jdkFlag, launchFlag, args)
 			if e != nil {
 				fail(cmd, e)
 				return nil
@@ -68,12 +68,12 @@ func NewCmd(exit *int) *cobra.Command {
 	}
 	cmd.Flags().String("jdk", "", "JDK spec (registry name or major version) used to run Maven; overrides every config level")
 	_ = cmd.RegisterFlagCompletionFunc("jdk", comp.Fn(comp.JdkSpecs))
-	cmd.Flags().String("startup", "", "how to start Maven: script (default, mvn/mvn.cmd wrapper) or jar (direct java launch)")
+	cmd.Flags().String("launch", "", "how to start Maven: script (default, mvn/mvn.cmd wrapper) or java (direct java launch)")
 	cmd.Flags().Bool("dry-run", false, "print the resolved environment and full command line without executing")
 	return cmd
 }
 
-func buildPlan(cmd *cobra.Command, jdkFlag, startupFlag string, passthrough []string) (*execPlan, *output.ErrInfo) {
+func buildPlan(cmd *cobra.Command, jdkFlag, launchFlag string, passthrough []string) (*execPlan, *output.ErrInfo) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
@@ -82,7 +82,7 @@ func buildPlan(cmd *cobra.Command, jdkFlag, startupFlag string, passthrough []st
 		cwd:         cwd,
 		goos:        runtime.GOOS,
 		jdkFlag:     jdkFlag,
-		startupFlag: startupFlag,
+		launchFlag:  launchFlag,
 		passthrough: passthrough,
 	}
 	if root := workspace.FindWorkspaceRoot(cwd); root != "" {
@@ -185,7 +185,7 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 				"bin":     filepath.ToSlash(plan.mavenBin),
 				"source":  plan.mavenSrc,
 			},
-			"startup": map[string]any{"value": plan.startup, "source": plan.startupSrc},
+			"launch":  map[string]any{"value": plan.mode, "source": plan.modeSrc},
 			"args":    plan.args,
 			"command": commandLine(plan),
 		}
@@ -238,7 +238,7 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 		_, _ = fmt.Fprintf(w, "repo\t%s\n", p.Dim("(no repo matches cwd)"))
 	}
 	_, _ = fmt.Fprintf(w, "maven\t%s %s [%s]\n", p.Cyan(plan.mavenName), plan.mavenVersion, plan.mavenSrc)
-	_, _ = fmt.Fprintf(w, "startup\t%s [%s]\n", p.Cyan(plan.startup), plan.startupSrc)
+	_, _ = fmt.Fprintf(w, "launch\t%s [%s]\n", p.Cyan(plan.mode), plan.modeSrc)
 	if plan.basedir != "" {
 		_, _ = fmt.Fprintf(w, "basedir\t%s\n", filepath.ToSlash(plan.basedir))
 	}

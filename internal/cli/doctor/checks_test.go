@@ -128,13 +128,13 @@ func TestCheckJdkSpec(t *testing.T) {
 	}
 }
 
-func TestCheckMavenStartup(t *testing.T) {
-	for _, v := range []string{"jar", "script"} {
-		if r := checkMavenStartup("workspace", "properties.json", v, "workspace properties"); r.Status != output.StatusOK {
+func TestCheckMavenLaunch(t *testing.T) {
+	for _, v := range []string{"java", "script"} {
+		if r := checkMavenLaunch("workspace", "properties.json", v, "workspace properties"); r.Status != output.StatusOK {
 			t.Errorf("%s want ok, got %v", v, r.Error)
 		}
 	}
-	if r := checkMavenStartup("workspace", "app", "fast", "repo properties"); r.Status != output.StatusFailed {
+	if r := checkMavenLaunch("workspace", "app", "fast", "repo properties"); r.Status != output.StatusFailed {
 		t.Errorf("invalid value want failed, got %s", r.Status)
 	}
 }

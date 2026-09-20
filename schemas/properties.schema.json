@@ -21,10 +21,10 @@
       "minLength": 1,
       "description": "Workspace-local maven repository; barista mvn injects -Dmaven.repo.local (relative paths anchor at the workspace root, ~ allowed)"
     },
-    "maven.startup": {
+    "maven.launch": {
       "type": "string",
-      "enum": ["script", "jar"],
-      "description": "How barista mvn starts Maven in this workspace: script (wrapper, default) or jar (direct classworlds launch); overridden by --startup and repo properties"
+      "enum": ["script", "java"],
+      "description": "How barista mvn starts Maven in this workspace: script (wrapper, default) or java (direct classworlds launch); overridden by --launch and repo properties"
     },
     "git.fetch.prune": {
       "type": "boolean",

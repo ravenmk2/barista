@@ -19,25 +19,25 @@ type launchSpec struct {
 	viaCmd bool
 }
 
-func resolveStartup(in planInput, repo *workspace.Repo) (string, string, *output.ErrInfo) {
-	spec, src := in.startupFlag, "flag"
+func resolveLaunch(in planInput, repo *workspace.Repo) (string, string, *output.ErrInfo) {
+	spec, src := in.launchFlag, "flag"
 	if spec == "" && repo != nil {
-		if v, ok := repo.Property("maven.startup"); ok && v != "" {
+		if v, ok := repo.Property("maven.launch"); ok && v != "" {
 			spec, src = v, "repo"
 		}
 	}
 	if spec == "" {
-		if v, ok := in.props.String("maven.startup"); ok && v != "" {
+		if v, ok := in.props.String("maven.launch"); ok && v != "" {
 			spec, src = v, "workspace"
 		}
 	}
 	if spec == "" {
 		return "script", "default", nil
 	}
-	if spec != "jar" && spec != "script" {
+	if spec != "java" && spec != "script" {
 		return "", "", &output.ErrInfo{
 			Code:    output.CodeConfigError,
-			Message: fmt.Sprintf("invalid maven.startup %q (from %s): want jar|script", spec, src),
+			Message: fmt.Sprintf("invalid maven.launch %q (from %s): want java|script", spec, src),
 		}
 	}
 	return spec, src, nil
@@ -47,7 +47,7 @@ func scriptLaunch(p *execPlan) launchSpec {
 	return launchSpec{bin: p.mavenBin, args: p.args, viaCmd: p.goos == "windows"}
 }
 
-func jarLaunch(in planInput, p *execPlan) (launchSpec, string, *output.ErrInfo) {
+func javaLaunch(in planInput, p *execPlan) (launchSpec, string, *output.ErrInfo) {
 	jars, err := filepath.Glob(filepath.Join(p.mavenHome, "boot", "plexus-classworlds-*.jar"))
 	if err == nil && len(jars) != 1 {
 		err = fmt.Errorf("want exactly 1 plexus-classworlds jar, found %d", len(jars))
@@ -56,7 +56,7 @@ func jarLaunch(in planInput, p *execPlan) (launchSpec, string, *output.ErrInfo) 
 		return launchSpec{}, "", &output.ErrInfo{
 			Code:    output.CodeMavenExecFailed,
 			Message: fmt.Sprintf("%s: %v", filepath.ToSlash(p.mavenHome), err),
-			Hint:    "fall back to the wrapper script with: --startup script",
+			Hint:    "fall back to the wrapper script with: --launch script",
 		}
 	}
 	m2conf := filepath.Join(p.mavenHome, "bin", "m2.conf")
@@ -64,7 +64,7 @@ func jarLaunch(in planInput, p *execPlan) (launchSpec, string, *output.ErrInfo) 
 		return launchSpec{}, "", &output.ErrInfo{
 			Code:    output.CodeMavenExecFailed,
 			Message: fmt.Sprintf("%s: no bin/m2.conf found", filepath.ToSlash(p.mavenHome)),
-			Hint:    "fall back to the wrapper script with: --startup script",
+			Hint:    "fall back to the wrapper script with: --launch script",
 		}
 	}
 

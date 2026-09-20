@@ -228,14 +228,14 @@ func checkRepoCheckout(ctx context.Context, ws *workspace.Workspace, repo worksp
 	return ok(repo.Name, "workspace", check, map[string]any{"path": repo.Path, "origin": origin})
 }
 
-func checkMavenStartup(scope, subject, value, howSet string) output.Result {
-	const check = "mavenStartup"
-	if value != "jar" && value != "script" {
+func checkMavenLaunch(scope, subject, value, howSet string) output.Result {
+	const check = "mavenLaunch"
+	if value != "java" && value != "script" {
 		return failed(subject, scope, check, output.CodeConfigError,
-			fmt.Sprintf("maven.startup %q (from %s) is invalid", value, howSet),
-			"valid values: jar, script")
+			fmt.Sprintf("maven.launch %q (from %s) is invalid", value, howSet),
+			"valid values: java, script")
 	}
-	return ok(subject, scope, check, map[string]any{"startup": value, "via": howSet})
+	return ok(subject, scope, check, map[string]any{"launch": value, "via": howSet})
 }
 
 func checkSettingsFile(wsRoot, file, check, injected string) output.Result {

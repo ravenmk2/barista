@@ -141,12 +141,12 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 			add(checkMavenDefaultSpec("workspace", "properties.json", v, "workspace properties", mavenReg))
 		}
 	}
-	if v, has := ws.Props.String("maven.startup"); has && v != "" {
-		add(checkMavenStartup("workspace", "properties.json", v, "workspace properties"))
+	if v, has := ws.Props.String("maven.launch"); has && v != "" {
+		add(checkMavenLaunch("workspace", "properties.json", v, "workspace properties"))
 	}
 	for _, repo := range ws.Repos.Repos {
-		if v, has := repo.Property("maven.startup"); has && v != "" {
-			add(checkMavenStartup("workspace", repo.Name, v, "repo properties"))
+		if v, has := repo.Property("maven.launch"); has && v != "" {
+			add(checkMavenLaunch("workspace", repo.Name, v, "repo properties"))
 		}
 	}
 	add(checkSettingsFile(ws.Root, "settings.xml", "settingsFile", "-s"))
