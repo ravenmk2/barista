@@ -1,6 +1,6 @@
 # 命令参考
 
-barista CLI 的完整命令参考。设计契约（分层、输出、退出码）见 [architecture.md](architecture.md)。
+barista CLI 的完整命令参考。全局设计契约（分层、输出、退出码）见 [architecture.md](architecture.md)；各域详细设计见 [design/](design/)。
 
 ## 全局约定
 
@@ -197,7 +197,7 @@ barista deps order [--repo <name>...] [--label <label>...]
 ### 要点
 
 - 选择器 `--repo` / `--label` 语义与 git 组一致；图始终在完整清单上构建，选择器只过滤输出（子集内 repo 的层级与全量一致）
-- `order` 同层 repo 按 repos.json 声明顺序显示（仅为确定性，不携带构建语义）；环成员折叠同层并标注 `(cycle)`
+- `order` 同层 repo 按 repos.json 声明顺序显示（仅为确定性，不携带构建语义）；环成员折叠同层，环以 `cycle: <成员列表>` 标注
 - 无失败路径：环与 dangling 是事实展示而非失败，exit 恒 0；仅用法/配置错误 exit 2
 - JSON：results 按声明顺序（`order` 也不例外），层级在 detail `buildLevel`；`show` 的 detail 含 `deps` / `dependedBy`，以及可选的 `dangling` / `cycle`
 
@@ -232,7 +232,7 @@ barista deps order --label java
 ### 要点
 
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
-- add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符报 USAGE_ERROR（exit 2）；`--default` 同时设为该 major 的默认
+- add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符按用法错误处理（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
 - download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
 - available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
@@ -381,13 +381,13 @@ barista doctor [--deep]
 
 ### 要点
 
-- 检查并发执行（`--parallel` 生效），结果按声明顺序输出
+- 浅查项装配期同步执行，probe 与 repo 检查走 runner 并发（`--parallel` 生效）；输出顺序为同步检查按声明序在前、并发检查结果按声明序追加在后
 - 结果三态：ok / skipped（不适用或信息项，reason 在 detail）/ failed（带 hint）；exit 0 全过 / 1 有 failed / 2 用法错误
 - `--json` 每项 detail 含 `scope`（user|workspace）与 `check`（检查 id，如 `jdkInstall` / `repoCheckout`）
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。主动联网的命令只有 `upgrade` 与 `jdk available`（均为用户显式调用才联网），其他命令永不被动检测更新。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes]
@@ -402,7 +402,7 @@ barista upgrade [--check] [--yes]
 
 - 读取 `releases/latest/download/manifest.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
 - 下载对应 GOOS/GOARCH 的 asset（断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
-- 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
+- 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行 upgrade 时自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
 - 确认契约：TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
 - exit 0 已最新、升级成功或 TTY 下回答 no 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
 

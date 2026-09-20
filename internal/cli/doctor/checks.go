@@ -101,6 +101,7 @@ func checkJdkProbe(e jdk.Entry) output.Result {
 	const check = "jdkProbe"
 	info, perr := jdk.Probe(e.Path)
 	if perr != nil {
+		perr.Hint = "run: barista jdk remove " + e.Name + "; or re-add with: barista jdk add " + e.Name + " <path>"
 		return errResult(e.Name, "user", check, perr)
 	}
 	if info.Major != e.Major || info.Version != e.Version {
@@ -214,12 +215,14 @@ func checkRepoCheckout(ctx context.Context, ws *workspace.Workspace, repo worksp
 	}
 	if !gitrun.IsGitRepo(ctx, dir) {
 		return failed(repo.Name, "workspace", check, output.CodeGitError,
-			fmt.Sprintf("%s exists but is not a git work tree", filepath.ToSlash(dir)), "")
+			fmt.Sprintf("%s exists but is not a git work tree", filepath.ToSlash(dir)),
+			"remove the directory and re-clone with: barista git clone --repo "+repo.Name)
 	}
 	origin, err := gitrun.OriginURL(ctx, dir)
 	if err != nil {
 		return failed(repo.Name, "workspace", check, output.CodeGitError,
-			fmt.Sprintf("cannot read origin of %s: %v", filepath.ToSlash(dir), err), "")
+			fmt.Sprintf("cannot read origin of %s: %v", filepath.ToSlash(dir), err),
+			"inspect the remote with: git -C "+filepath.ToSlash(dir)+" remote -v")
 	}
 	if workspace.NormalizeURL(origin) != workspace.NormalizeURL(repo.ResolvedURL) {
 		return failed(repo.Name, "workspace", check, output.CodeRepoRemoteMismatch,

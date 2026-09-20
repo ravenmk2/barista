@@ -7,7 +7,7 @@
 
 多仓库工作区的开发环境管理工具，Java 生态优先。输出面向脚本与 AI Agent：结构化 JSON、机器可读错误码、非交互环境永不阻塞、操作幂等可重复。
 
-- **JDK / Maven 工具链管理**：发现、注册、一键安装（temurin / microsoft / corretto / zulu / graalvm）、多版本默认切换
+- **JDK / Maven 工具链管理**：发现、注册、一键安装（Temurin / Microsoft JDK / Corretto / Zulu / GraalVM）、多版本默认切换
 - **工作区感知的 mvn / java**：按 repo / 工作区 / 用户多级自动选用 JDK，注入私有 settings 与本地仓库
 - **环境体检与自更新**：`barista doctor` 诊断配置与检出，`barista upgrade` 一键升级
 - **动态 shell 补全**：bash / zsh / fish / PowerShell，仓库名、JDK、Maven 等参数智能候选

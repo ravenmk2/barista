@@ -61,9 +61,9 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 
 	var jdkReg *jdk.Registry
 	if p, err := jdk.RegistryPath(); err != nil {
-		add(failed("jdk.json", "user", "jdkRegistryParse", output.CodeConfigError, err.Error(), ""))
+		add(failed("jdk.json", "user", "jdkRegistryParse", output.CodeConfigError, err.Error(), "check that the user home directory is resolvable"))
 	} else if reg, e := jdk.Load(p); e != nil {
-		add(errResult("jdk.json", "user", "jdkRegistryParse", e))
+		add(errResult("jdk.json", "user", "jdkRegistryParse", withHint(e, "fix or delete "+filepath.ToSlash(p))))
 	} else {
 		jdkReg = reg
 		add(ok("jdk.json", "user", "jdkRegistryParse", map[string]any{"registered": len(reg.JDKs)}))
@@ -80,9 +80,9 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 
 	var mavenReg *maven.Registry
 	if p, err := maven.RegistryPath(); err != nil {
-		add(failed("maven.json", "user", "mavenRegistryParse", output.CodeConfigError, err.Error(), ""))
+		add(failed("maven.json", "user", "mavenRegistryParse", output.CodeConfigError, err.Error(), "check that the user home directory is resolvable"))
 	} else if reg, e := maven.Load(p); e != nil {
-		add(errResult("maven.json", "user", "mavenRegistryParse", e))
+		add(errResult("maven.json", "user", "mavenRegistryParse", withHint(e, "fix or delete "+filepath.ToSlash(p))))
 	} else {
 		mavenReg = reg
 		add(ok("maven.json", "user", "mavenRegistryParse", map[string]any{"registered": len(reg.Installations)}))
@@ -101,7 +101,7 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		add(failed("workspace", "workspace", "workspaceDetect", output.CodeWorkspaceNotFound, err.Error(), ""))
+		add(failed("workspace", "workspace", "workspaceDetect", output.CodeWorkspaceNotFound, err.Error(), "the current directory may have been removed; cd into an existing directory and retry"))
 		return results, tasks
 	}
 	root := workspace.FindWorkspaceRoot(cwd)
@@ -116,7 +116,7 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 		if errors.As(err, &le) {
 			e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
 		}
-		add(errResult(".barista", "workspace", "workspaceLoad", e))
+		add(errResult(".barista", "workspace", "workspaceLoad", withHint(e, "fix the invalid files under .barista/")))
 		return results, tasks
 	}
 	add(ok("workspace", "workspace", "workspaceLoad", map[string]any{
@@ -161,6 +161,13 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 	return results, tasks
 }
 
+func withHint(e *output.ErrInfo, hint string) *output.ErrInfo {
+	if e.Hint == "" {
+		e.Hint = hint
+	}
+	return e
+}
+
 func checkUserConfig() output.Result {
 	const name, check = "config.json", "userConfigParse"
 	_, err := workspace.LoadUserConfig()
@@ -172,7 +179,7 @@ func checkUserConfig() output.Result {
 	if errors.As(err, &le) {
 		e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
 	}
-	return errResult(name, "user", check, e)
+	return errResult(name, "user", check, withHint(e, "fix or delete the user config file (~/.barista/config.json)"))
 }
 
 func render(cmd *cobra.Command, results []output.Result) {
