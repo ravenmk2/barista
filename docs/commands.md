@@ -55,6 +55,7 @@ barista completion powershell >> $PROFILE
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
 - `mvn --jdk` / `java --jdk`：JDK spec
 - `jdk env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
+- `jdk download --os` / `--arch`：linux/darwin/windows 与 amd64/arm64 静态枚举；`--output`：目录
 - `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录
 
 ## init — 工作区引导
@@ -161,6 +162,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 | `discover`                   | 扫描 JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 并注册 |
 | `add <name> <path>`          | 注册已安装的 JDK（起 `java` 探测版本与发行版；`javac` 仅做存在性检查） |
 | `install <distro><major>`    | 下载并安装到托管目录（支持 temurin / microsoft / corretto / zulu / graalvm） |
+| `download <distro><major>`   | 只下载归档不安装（`--os` / `--arch` 跨平台，`--output` 指定目录或文件路径） |
 | `available`                  | 列出远端可安装的 JDK（major / 最新版本 / LTS / 是否已装）   |
 | `list`                       | 列出已注册 JDK（别名 `ls`）                                 |
 | `which <major\|name>`        | 解析 JDK 并打印信息（恒输出 JSON）                          |
@@ -177,6 +179,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符报 USAGE_ERROR（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
+- download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
 - available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1

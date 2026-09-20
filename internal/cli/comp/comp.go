@@ -141,6 +141,14 @@ func Labels() []string {
 	return out
 }
 
+func TargetOSes() []string {
+	return []string{"linux", "darwin", "windows"}
+}
+
+func TargetArches() []string {
+	return []string{"amd64", "arm64"}
+}
+
 func Shells() []string {
 	return []string{"sh\tbash/zsh compatible", "cmd\tWindows cmd.exe", "powershell\tPowerShell / pwsh", "pwsh\talias of powershell", "ps\talias of powershell"}
 }
