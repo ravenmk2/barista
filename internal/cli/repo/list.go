@@ -41,6 +41,9 @@ func listCmd() *cobra.Command {
 				if len(r.Labels) > 0 {
 					res.Detail["labels"] = r.Labels
 				}
+				if len(r.Deps) > 0 {
+					res.Detail["deps"] = r.Deps
+				}
 				if r.DefaultBranch != "" {
 					res.Detail["defaultBranch"] = r.DefaultBranch
 				}

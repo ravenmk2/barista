@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"barista/internal/deps"
 	"barista/internal/gitrun"
 	"barista/internal/jdk"
 	"barista/internal/maven"
@@ -236,6 +237,30 @@ func checkMavenLaunch(scope, subject, value, howSet string) output.Result {
 			"valid values: java, script")
 	}
 	return ok(subject, scope, check, map[string]any{"launch": value, "via": howSet})
+}
+
+func checkRepoDeps(ws *workspace.Workspace) output.Result {
+	const name, check = "repos.json deps", "repoDeps"
+	g := deps.Build(ws.Repos.Repos)
+	if !g.HasDangling() {
+		total := 0
+		for _, r := range ws.Repos.Repos {
+			total += len(g.Deps(r.Name))
+		}
+		if total == 0 {
+			return skipped(name, "workspace", check, "no deps declared")
+		}
+		return ok(name, "workspace", check, map[string]any{"edges": total})
+	}
+	var parts []string
+	for _, r := range ws.Repos.Repos {
+		for _, d := range g.Dangling(r.Name) {
+			parts = append(parts, r.Name+"→"+d)
+		}
+	}
+	return failed(name, "workspace", check, output.CodeRepoNotFound,
+		fmt.Sprintf("deps reference unknown repos: %v", parts),
+		"fix the deps entries in .barista/repos.json")
 }
 
 func checkSettingsFile(wsRoot, file, check, injected string) output.Result {

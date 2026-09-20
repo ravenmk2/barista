@@ -15,6 +15,7 @@ type Repo struct {
 	Path          string            `json:"path"`
 	DefaultBranch string            `json:"defaultBranch,omitempty"`
 	Labels        []string          `json:"labels,omitempty"`
+	Deps          []string          `json:"deps,omitempty"`
 	Properties    map[string]string `json:"properties,omitempty"`
 
 	ResolvedURL string `json:"-"`

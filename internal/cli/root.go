@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
+	depscli "barista/internal/cli/deps"
 	doctorcli "barista/internal/cli/doctor"
 	gitcli "barista/internal/cli/git"
 	initcli "barista/internal/cli/init"
@@ -30,6 +31,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.AddCommand(mvncli.NewCmd(&ExitCode))
 	root.AddCommand(javacli.NewCmd(&ExitCode))
 	root.AddCommand(repocli.NewCmd(&ExitCode))
+	root.AddCommand(depscli.NewCmd(&ExitCode))
 	root.AddCommand(doctorcli.NewCmd(&ExitCode))
 	root.AddCommand(upgradecli.NewCmd(&ExitCode, version))
 	root.AddCommand(schemaCmd())

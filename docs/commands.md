@@ -50,7 +50,7 @@ barista completion powershell >> $PROFILE
 
 除命令名/flag 名的静态补全外，以下位置有动态补全（只读本地 registry / repos.json，失败静默降级为空，永不起子进程联网）：
 
-- `--repo` / `--label`（git 组）：当前工作区的仓库名与标签
+- `--repo` / `--label`（git / deps 组）：当前工作区的仓库名与标签
 - jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
 - `mvn --jdk` / `java --jdk`：JDK spec
@@ -156,7 +156,7 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 ### list 要点
 
 - 按 repos.json 声明顺序输出；检出状态用 `<path>/.git` 存在性判定（不起子进程、不联网），未检出标记 `not cloned`
-- text 列为 NAME / PATH / URL（resolvedUrl）/ LABELS / CHECKOUT；JSON detail 含 `url` / `resolvedUrl` / `cloned` 及可选的 `labels` / `defaultBranch` / `properties`
+- text 列为 NAME / PATH / URL（resolvedUrl）/ LABELS / CHECKOUT；JSON detail 含 `url` / `resolvedUrl` / `cloned` 及可选的 `labels` / `defaultBranch` / `deps` / `properties`
 - exit 0；无清单条目时 text 打印提示、JSON 为空 results
 
 ### remove 要点
@@ -169,6 +169,41 @@ barista repo add order-service --no-clone    # 相对 URL，走 baseUrl
 ```bash
 barista repo list
 barista repo remove order-service --delete --yes
+```
+
+## deps — 仓库依赖图
+
+从 `.barista/repos.json` 的 `repos[].deps` 声明读取仓库间依赖关系。纯清单操作：只读、离线、不要求任何 repo 已检出。裸 `barista deps` 显示帮助。
+
+```txt
+barista deps show  [--repo <name>...] [--label <label>...]
+barista deps order [--repo <name>...] [--label <label>...]
+```
+
+| 命令   | 行为                                                       |
+| ------ | ---------------------------------------------------------- |
+| `show` | 邻接表：每个 repo 依赖谁、dangling 引用与环标注            |
+| `order` | 构建层级序：层级 = 1 + 依赖链最长路径，同层可并行构建      |
+
+### 数据声明
+
+```json
+{ "name": "order-service", "url": "order-service", "deps": ["common-lib", "user-service"] }
+```
+
+- `deps` 为本 repo 构建前需先构建的清单内 repo 名（稳定事实，人维护）；缺省/空 = 无内部依赖
+- 引用不存在的 repo 名是 dangling：deps 命令如实标注（不报错），`barista doctor` 的 `repoDeps` 检查报 failed
+
+### 要点
+
+- 选择器 `--repo` / `--label` 语义与 git 组一致；图始终在完整清单上构建，选择器只过滤输出（子集内 repo 的层级与全量一致）
+- `order` 同层 repo 按 repos.json 声明顺序显示（仅为确定性，不携带构建语义）；环成员折叠同层并标注 `(cycle)`
+- 无失败路径：环与 dangling 是事实展示而非失败，exit 恒 0；仅用法/配置错误 exit 2
+- JSON：results 按声明顺序（`order` 也不例外），层级在 detail `buildLevel`；`show` 的 detail 含 `deps` / `dependedBy`，以及可选的 `dangling` / `cycle`
+
+```bash
+barista deps show
+barista deps order --label java
 ```
 
 ## jdk — JDK 注册表管理
@@ -342,7 +377,7 @@ barista doctor [--deep]
 ### 检查项
 
 - user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）；两者文件不存在报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn 执行器的 basedir 查找语义不同）
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）；两者文件不存在报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn 执行器的 basedir 查找语义不同）
 
 ### 要点
 

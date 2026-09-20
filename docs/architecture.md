@@ -7,9 +7,10 @@ barista 的目录结构与设计契约，改动代码前必读。
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：root（--json/--parallel）+ comp/ 补全候选助手 + init/ 引导命令 + git/ 命令组 + repo/ 清单管理组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
+  cli/              cobra 命令层：root（--json/--parallel）+ comp/ 补全候选助手 + init/ 引导命令 + git/ 命令组 + repo/ 清单管理组 + deps/ 依赖图组 + jdk/ 命令组 + maven/ 命令组 + mvn/ 与 java/ 执行器命令 + doctor/ 体检命令 + upgrade/ 自更新命令 + schema.go
   workspace/        工作区发现（向上找 .barista/，FindWorkspaceRoot 含 home 守卫）、init（skeleton 创建与两层检出扫描）、repos.json 与两级 config.json 加载合并、repos.json 追加写（AddRepo）、properties.json 读写、cwd→repo 匹配（MatchRepo 最长前缀）、上爬查找（FindUpward/FindGitRoot，.git 文件/目录形态兼容）、.java-version 原子写（WriteJavaVersionFile）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析链
+  deps/             依赖图域：从 repos[].deps 声明建图，dangling 检测、SCC 环检测（Tarjan）、构建层级（最长路径 +1，环成员同层）
   jdk/              JDK 域：registry（~/.barista/jdk.json）读写、java 探测（version/distro）、版本比较、.java-version 解析（ParseJavaVersionFile/ResolveJavaVersionSpec）
   maven/            Maven 域：registry（~/.barista/maven.json）读写、文件系统探测（maven-core jar）、版本比较、模糊解析、wrapper distributionUrl 版本提取（ExtractWrapperVersion）
   download/         通用下载（断点续传/退避重试）、文件名解析（HEAD）与归档解压（zip/tar.gz），jdk 与 maven 共用
@@ -31,6 +32,7 @@ cmd/barista            入口，只做 fang.Execute
 internal/cli/       命令层：解析参数、组装 []Task；不碰业务逻辑
 internal/workspace/ 工作区发现（向上找 .barista/）、repos.json / 两级 config.json 加载校验、上爬查找与检出根判定（upward.go）、.java-version 原子写
 internal/gitrun/    git 域：exec 封装、单仓库操作、默认分支解析
+internal/deps/      依赖图域：从 repos[].deps 声明建图；dangling 检测、SCC 环检测（Tarjan）、构建层级（1 + 依赖链最长路径，环成员共享层级）；纯函数，不碰文件系统与子进程
 internal/jdk/       JDK 域：registry 读写（原子写）、probe（java -version / -XshowSettings 解析）、版本解析比较、.java-version 解析与 distro+major 解析（javaversion.go）、discover 候选收集（JAVA_HOME 系 env / sdkman / 平台安装位置 / PATH 反推）
 internal/maven/     Maven 域：registry 读写（原子写）、probe（纯文件系统：bin/mvn 存在性 + lib/maven-core-*.jar 文件名解析版本，不起子进程）、版本比较（数字段 + qualifier token 比较，ComparableVersion 简化版）、模糊解析、wrapper properties 版本提取（wrapper.go）、discover 候选收集（MAVEN_HOME/M2_HOME / sdkman / brew / scoop / 平台位置 / PATH 反推）
 internal/download/  通用下载（Range 断点续传、指数退避重试、4xx 不重试）、文件名解析（HEAD + Content-Disposition/最终 URL basename）与归档解压（剥首层、防 zip-slip/逃逸 symlink）
@@ -43,6 +45,8 @@ schemas/            JSON Schema 单一数据源（包即数据目录，同目录
 核心契约：**cli 产出 `[]Task` → runner 产出 `[]Result` → renderer 只消费 Result**。renderer 不得触碰 git 逻辑。新增功能域（jdk、tool）时各自实现 Task，runner 和 output 不得为此修改。
 
 repo 命令组（cli/repo/）管理工作区清单 repos.json，是唯一**写** repos.json 的入口（`init --scan` 的导入也复用同一 AddRepo 路径）：自带轻骨架（单仓库操作不走 runner/panel），`repo add <url>` 先注册后克隆——注册走 `workspace.AddRepo`（原子写，保留未知顶层字段与既有条目原始字节，baseUrl 前缀自动剥成相对存储；name 存在且 URL 等价 → 幂等跳过，URL 不同 → REPO_EXISTS exit 2），克隆复用 `gitrun.Clone`（目标已是 git 仓库先校验 origin 与 ResolvedURL 一致，不符报 REPO_REMOTE_MISMATCH exit 1）；clone 失败留下"已注册未检出"的合法状态，重跑自动续 clone。URL 等价比较统一走 `workspace.NormalizeURL`（去尾部 `/` 与 `.git`）。`repo list` 只读：按声明顺序列出清单条目，检出状态以 `<path>/.git` 存在性判定（不起子进程）；`repo remove` 经 `workspace.RemoveRepo` 注销条目（同一原子写契约），默认保留检出，`--delete` 仅当目标是 git 检出才删目录，确认契约同 uninstall（TTY 询问 / 非 TTY CONFIRMATION_REQUIRED / `--yes`）。
+
+deps 命令组（cli/deps/）是**纯只读**的清单消费者：`repos[].deps` 声明（repo 名数组，人维护的稳定事实）经 `internal/deps` 建图，`show` 输出邻接表（dangling 引用与环如实标注），`order` 输出构建层级序——层级 = 1 + 依赖链最长路径，同层可并行构建，环成员折叠同层并标注；图在完整清单上构建，选择器（--repo/--label，语义同 git 组）只过滤输出。不克隆也可运行（不触碰检出）；无失败路径，环与 dangling 是事实展示而非失败（exit 0），仅用法/配置错误 exit 2。文本自排版（tabwriter，骨架镜像 repo 组），JSON 走 Envelope：results 按声明顺序，order 的层级放 detail.buildLevel。
 
 `barista init [path]`（cli/init/）引导新工作区：`workspace.Init` 创建 `.barista/repos.json` skeleton（已存在永不覆盖，报 already initialized），目标路径不存在报 CONFIG_ERROR；`--scan` 经 `workspace.ScanCheckouts` 扫两层内（`*/.git`、`repos/*/.git`，跳过隐藏目录与 .barista）的检出，按 origin URL 逐条 AddRepo 导入（无 origin / 已注册 / name 冲突均跳过并记录原因），导入的 URL 同样走 baseUrl 转相对。
 
@@ -93,7 +97,7 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 - `<workspace>/.barista/maven/`：maven 执行约定目录——`settings.xml` 存在即被 `barista mvn` 以 `-s` 注入（零配置私有 settings），`settings-security.xml` 同理注入 `-Dsettings.security`
 - maven 命令的 workspace 发现是机会主义的（FindRoot 找不到不算错误，仅意味着无 workspace 级覆盖）；**home 目录守卫**：向上找到的 `.barista` 若就是 user 级 `~/.barista`（root == 用户主目录），不视为 workspace——防止把 workspace 偏好写进 user 级文件。守卫实现收敛在 `workspace.FindWorkspaceRoot`，maven 组与 mvn 命令共用
 - workspace level：`<workspace>/.barista/config.json`（与 user level 同 schema，覆盖 user level）
-- `<workspace>/.barista/repos.json`：仓库清单（纯事实：baseUrl、defaultBranch、repos）；repo 条目另有 `properties` map（string→string），承载 **per-repo 覆盖**——当前被读取的键：`jdk`（工具链声明，不限 maven；cwd 命中 repo 时优先于 workspace jdk）、`maven.launch`（java|script，同理）；未知键宽容忽略，其他域可复用同一容器
+- `<workspace>/.barista/repos.json`：仓库清单（纯事实：baseUrl、defaultBranch、repos）；repo 条目的 `deps` 声明本 repo 构建前需先构建的清单内 repo 名（稳定事实，人维护，供 `barista deps` 消费）；repo 条目另有 `properties` map（string→string），承载 **per-repo 覆盖**——当前被读取的键：`jdk`（工具链声明，不限 maven；cwd 命中 repo 时优先于 workspace jdk）、`maven.launch`（java|script，同理）；未知键宽容忽略，其他域可复用同一容器
 - 优先级（低→高）：内置默认 → user level → workspace level（config.json + properties.json，含 git.* 键）→ repo properties（per-repo 值）→ 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
 - 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**workspace 级行为/环境偏好**（`git.fetch.prune`、`jdk`、`maven.*` 等）放 properties.json。拿不准时按此规则裁决。键命名约定：跨域工具链声明用裸名（`jdk`），域专属偏好用点分前缀（`maven.*`、`git.*`）
 - 所有层级对未知字段宽容（忽略）

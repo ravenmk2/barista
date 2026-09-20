@@ -155,6 +155,7 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 			add(checkMavenLaunch("workspace", repo.Name, v, "repo properties"))
 		}
 	}
+	add(checkRepoDeps(ws))
 	add(checkSettingsFile(ws.Root, "settings.xml", "settingsFile", "-s"))
 	add(checkSettingsFile(ws.Root, "settings-security.xml", "settingsSecurityFile", "-Dsettings.security"))
 	return results, tasks
