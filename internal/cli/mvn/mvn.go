@@ -28,7 +28,9 @@ func NewCmd(exit *int) *cobra.Command {
 		Short:                 "Run Maven with the workspace-aware JDK, settings.xml and local repo",
 		DisableFlagsInUseLine: true,
 		Long: "Run Maven in the current directory. Arguments after \"--\" are passed through verbatim.\n" +
-			"Resolution (high to low): JDK: --jdk > repo properties[\"jdk\"] > workspace jdk > user maven.json jdk > ambient.\n" +
+			"Resolution (high to low): JDK: --jdk > .java-version file > repo properties[\"jdk\"] > workspace jdk > user maven.json jdk > ambient.\n" +
+			"Maven installation: .mvn/wrapper/maven-wrapper.properties version > workspace maven.default > user maven.json default.\n" +
+			"File detection can be disabled with the workspace property detect.files=false.\n" +
 			"settings.xml: .barista/maven/settings.xml is injected as -s when present (skipped when you pass -s yourself).\n" +
 			"maven.repo.local: workspace property injected as -Dmaven.repo.local (skipped when you pass it yourself).\n" +
 			"launch: script (default) runs the bundled mvn/mvn.cmd wrapper; java boots the classworlds jar with java directly,\n" +
@@ -117,7 +119,44 @@ func buildPlan(cmd *cobra.Command, jdkFlag, launchFlag string, passthrough []str
 		return nil, e
 	}
 	in.jdkReg = jdkReg
+	if detectFilesEnabled(in.props) {
+		if major, distro, file := detectJavaVersionFile(cwd, in.wsRoot); major > 0 {
+			in.javaVersionMajor, in.javaVersionDistro, in.javaVersionFile = major, distro, file
+		}
+		if v, f, ok := wrapperVersion(cwd, passthrough); ok {
+			in.wrapperVersion, in.wrapperFile = v, f
+		}
+	}
 	return planExec(in)
+}
+
+func detectFilesEnabled(props workspace.Properties) bool {
+	if v, ok := props.Bool("detect.files"); ok {
+		return v
+	}
+	return true
+}
+
+func detectJavaVersionFile(cwd, wsRoot string) (int, string, string) {
+	boundary := wsRoot
+	if gitRoot, ok := workspace.FindGitRoot(cwd, wsRoot); ok {
+		boundary = gitRoot
+	} else if wsRoot == "" {
+		boundary = cwd
+	}
+	path, ok := workspace.FindUpward(cwd, boundary, ".java-version")
+	if !ok {
+		return 0, "", ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, "", ""
+	}
+	major, distro, ok := jdk.ParseJavaVersionFile(string(data))
+	if !ok {
+		return 0, "", ""
+	}
+	return major, distro, path
 }
 
 func runPlan(cmd *cobra.Command, plan *execPlan) {
@@ -189,6 +228,9 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 			"args":    plan.args,
 			"command": commandLine(plan),
 		}
+		if plan.mavenFile != "" {
+			detail["maven"].(map[string]any)["file"] = filepath.ToSlash(plan.mavenFile)
+		}
 		if plan.basedir != "" {
 			detail["basedir"] = filepath.ToSlash(plan.basedir)
 		}
@@ -199,13 +241,17 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 			detail["repo"] = map[string]any{"name": plan.repoName, "path": filepath.ToSlash(plan.repoPath)}
 		}
 		if plan.javaHome != "" {
-			detail["jdk"] = map[string]any{
+			jdkDetail := map[string]any{
 				"spec":     plan.jdkSpec,
 				"name":     plan.jdkName,
 				"version":  plan.jdkVersion,
 				"javaHome": filepath.ToSlash(plan.javaHome),
 				"source":   plan.jdkSrc,
 			}
+			if plan.jdkFile != "" {
+				jdkDetail["file"] = filepath.ToSlash(plan.jdkFile)
+			}
+			detail["jdk"] = jdkDetail
 		} else {
 			detail["jdk"] = map[string]any{"source": "ambient"}
 		}
@@ -237,14 +283,22 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 	} else {
 		_, _ = fmt.Fprintf(w, "repo\t%s\n", p.Dim("(no repo matches cwd)"))
 	}
-	_, _ = fmt.Fprintf(w, "maven\t%s %s [%s]\n", p.Cyan(plan.mavenName), plan.mavenVersion, plan.mavenSrc)
+	mvnSrc := plan.mavenSrc
+	if plan.mavenFile != "" {
+		mvnSrc = fmt.Sprintf("%s, %s", mvnSrc, filepath.ToSlash(plan.mavenFile))
+	}
+	_, _ = fmt.Fprintf(w, "maven\t%s %s [%s]\n", p.Cyan(plan.mavenName), plan.mavenVersion, mvnSrc)
 	_, _ = fmt.Fprintf(w, "launch\t%s [%s]\n", p.Cyan(plan.mode), plan.modeSrc)
 	if plan.basedir != "" {
 		_, _ = fmt.Fprintf(w, "basedir\t%s\n", filepath.ToSlash(plan.basedir))
 	}
 	_, _ = fmt.Fprintf(w, "bin\t%s\n", filepath.ToSlash(plan.launch.bin))
 	if plan.javaHome != "" {
-		_, _ = fmt.Fprintf(w, "jdk\t%s → %s %s [%s]\n", p.Cyan(plan.jdkSpec), plan.jdkName, plan.jdkVersion, plan.jdkSrc)
+		jdkSrc := plan.jdkSrc
+		if plan.jdkFile != "" {
+			jdkSrc = fmt.Sprintf("%s, %s", jdkSrc, filepath.ToSlash(plan.jdkFile))
+		}
+		_, _ = fmt.Fprintf(w, "jdk\t%s → %s %s [%s]\n", p.Cyan(plan.jdkSpec), plan.jdkName, plan.jdkVersion, jdkSrc)
 		_, _ = fmt.Fprintf(w, "JAVA_HOME\t%s\n", filepath.ToSlash(plan.javaHome))
 	} else {
 		_, _ = fmt.Fprintf(w, "jdk\t%s\n", p.Dim("(ambient, JAVA_HOME/PATH left untouched)"))

@@ -135,10 +135,16 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 				add(checkJdkSpec("workspace", repo.Name, v, "repo properties", jdkReg))
 			}
 		}
+		for _, repo := range ws.Repos.Repos {
+			add(checkJavaVersionFile(ws, repo, jdkReg))
+		}
 	}
 	if mavenReg != nil {
 		if v, has := ws.Props.String("maven.default"); has && v != "" {
 			add(checkMavenDefaultSpec("workspace", "properties.json", v, "workspace properties", mavenReg))
+		}
+		for _, repo := range ws.Repos.Repos {
+			add(checkMavenWrapperFile(ws, repo, mavenReg))
 		}
 	}
 	if v, has := ws.Props.String("maven.launch"); has && v != "" {

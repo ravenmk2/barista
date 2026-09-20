@@ -27,7 +27,8 @@ func NewCmd(exit *int) *cobra.Command {
 		Short:                 "Run java with the workspace-aware JDK",
 		DisableFlagsInUseLine: true,
 		Long: "Run java in the current directory. Arguments after \"--\" are passed through verbatim.\n" +
-			"Resolution (high to low): --jdk > repo properties[\"jdk\"] > workspace jdk > ambient PATH.\n" +
+			"Resolution (high to low): --jdk > .java-version file > repo properties[\"jdk\"] > workspace jdk > ambient PATH.\n" +
+			"File detection can be disabled with the workspace property detect.files=false.\n" +
 			"When a registered JDK is resolved, JAVA_HOME is set for the child process only.",
 		Example: `  barista java -- -version
 	  barista java --jdk 17 --dry-run -- -jar app.jar`,
@@ -104,7 +105,41 @@ func buildPlan(cmd *cobra.Command, jdkFlag string, passthrough []string) (*execP
 	if bin, err := exec.LookPath("java"); err == nil {
 		in.ambientBin = bin
 	}
+	if detectFilesEnabled(in.props) {
+		if major, distro, file := detectJavaVersionFile(cwd, in.wsRoot); major > 0 {
+			in.javaVersionMajor, in.javaVersionDistro, in.javaVersionFile = major, distro, file
+		}
+	}
 	return planExec(in)
+}
+
+func detectFilesEnabled(props workspace.Properties) bool {
+	if v, ok := props.Bool("detect.files"); ok {
+		return v
+	}
+	return true
+}
+
+func detectJavaVersionFile(cwd, wsRoot string) (int, string, string) {
+	boundary := wsRoot
+	if gitRoot, ok := workspace.FindGitRoot(cwd, wsRoot); ok {
+		boundary = gitRoot
+	} else if wsRoot == "" {
+		boundary = cwd
+	}
+	path, ok := workspace.FindUpward(cwd, boundary, ".java-version")
+	if !ok {
+		return 0, "", ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, "", ""
+	}
+	major, distro, ok := jdk.ParseJavaVersionFile(string(data))
+	if !ok {
+		return 0, "", ""
+	}
+	return major, distro, path
 }
 
 func runPlan(cmd *cobra.Command, plan *execPlan) {
@@ -169,13 +204,17 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 			detail["repo"] = map[string]any{"name": plan.repoName, "path": filepath.ToSlash(plan.repoPath)}
 		}
 		if plan.javaHome != "" {
-			detail["jdk"] = map[string]any{
+			jdkDetail := map[string]any{
 				"spec":     plan.jdkSpec,
 				"name":     plan.jdkName,
 				"version":  plan.jdkVersion,
 				"javaHome": filepath.ToSlash(plan.javaHome),
 				"source":   plan.jdkSrc,
 			}
+			if plan.jdkFile != "" {
+				jdkDetail["file"] = filepath.ToSlash(plan.jdkFile)
+			}
+			detail["jdk"] = jdkDetail
 		} else {
 			detail["jdk"] = map[string]any{"source": "ambient"}
 		}
@@ -199,7 +238,11 @@ func printPlan(cmd *cobra.Command, plan *execPlan, p output.Palette) {
 		_, _ = fmt.Fprintf(w, "repo\t%s\n", p.Dim("(no repo matches cwd)"))
 	}
 	if plan.javaHome != "" {
-		_, _ = fmt.Fprintf(w, "jdk\t%s → %s %s [%s]\n", p.Cyan(plan.jdkSpec), plan.jdkName, plan.jdkVersion, plan.jdkSrc)
+		src := plan.jdkSrc
+		if plan.jdkFile != "" {
+			src = fmt.Sprintf("%s, %s", src, filepath.ToSlash(plan.jdkFile))
+		}
+		_, _ = fmt.Fprintf(w, "jdk\t%s → %s %s [%s]\n", p.Cyan(plan.jdkSpec), plan.jdkName, plan.jdkVersion, src)
 		_, _ = fmt.Fprintf(w, "JAVA_HOME\t%s\n", filepath.ToSlash(plan.javaHome))
 	} else {
 		_, _ = fmt.Fprintf(w, "jdk\t%s\n", p.Dim("(ambient, JAVA_HOME/PATH left untouched)"))

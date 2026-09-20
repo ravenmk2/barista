@@ -17,7 +17,7 @@ func useCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:               "use <major|name>",
 		ValidArgsFunction: comp.Fn(comp.JdkSpecs),
-		Short:             `Set the JDK for the current workspace (writes .barista/properties.json "jdk")`,
+		Short:             `Set the JDK for the current workspace (writes .barista/properties.json "jdk", plus .java-version at the checkout root when inside one)`,
 		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
@@ -74,8 +74,31 @@ func useCmd() *cobra.Command {
 					},
 				},
 			}
+			javaVersionNote := ""
+			if gitRoot, ok := workspace.FindGitRoot(cwd, root); ok {
+				prev, err := workspace.WriteJavaVersionFile(gitRoot, entry.Version)
+				if err != nil {
+					res.Status = output.StatusFailed
+					res.Error = &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
+					failResult(cmd, p, res)
+					return nil
+				}
+				file := filepath.ToSlash(filepath.Join(gitRoot, ".java-version"))
+				res.Detail["javaVersionFile"] = file
+				if prev != entry.Version {
+					if prev != "" {
+						res.Detail["previous"] = prev
+						javaVersionNote = fmt.Sprintf("updated %s (%s → %s)\n", file, prev, entry.Version)
+					} else {
+						javaVersionNote = fmt.Sprintf("updated %s (%s)\n", file, entry.Version)
+					}
+				}
+			}
 			if jsonOut, _ := cmd.Flags().GetBool("json"); !jsonOut {
 				fmt.Printf("workspace jdk set to %s (%s %s) [%s]\n", p.Cyan(spec), entry.Name, entry.Version, filepath.ToSlash(root))
+				if javaVersionNote != "" {
+					fmt.Print(javaVersionNote)
+				}
 			}
 			finish(cmd, []output.Result{res})
 			return nil

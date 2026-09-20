@@ -10,15 +10,18 @@ import (
 )
 
 type planInput struct {
-	cwd         string
-	goos        string
-	jdkFlag     string
-	passthrough []string
-	ambientBin  string
-	wsRoot      string
-	repos       []workspace.Repo
-	props       workspace.Properties
-	jdkReg      *jdk.Registry
+	cwd               string
+	goos              string
+	jdkFlag           string
+	passthrough       []string
+	ambientBin        string
+	wsRoot            string
+	repos             []workspace.Repo
+	props             workspace.Properties
+	jdkReg            *jdk.Registry
+	javaVersionMajor  int
+	javaVersionDistro string
+	javaVersionFile   string
 }
 
 type execPlan struct {
@@ -29,6 +32,7 @@ type execPlan struct {
 	javaHome    string
 	jdkSpec     string
 	jdkSrc      string
+	jdkFile     string
 	jdkName     string
 	jdkVersion  string
 	javaBin     string
@@ -49,6 +53,17 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 	}
 
 	spec, src := in.jdkFlag, "flag"
+	if spec == "" && in.javaVersionMajor > 0 {
+		entry, vSpec := jdk.ResolveJavaVersionSpec(in.jdkReg, in.javaVersionMajor, in.javaVersionDistro)
+		if entry == nil {
+			return nil, &output.ErrInfo{
+				Code:    output.CodeJDKNotFound,
+				Message: fmt.Sprintf("jdk %q (from .java-version) is not registered", vSpec),
+				Hint:    "run: barista jdk list",
+			}
+		}
+		spec, src = vSpec, "java-version"
+	}
 	if spec == "" && repo != nil {
 		if v, ok := repo.Property("jdk"); ok && v != "" {
 			spec, src = v, "repo"
@@ -84,6 +99,9 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 	p.javaHome = entry.Path
 	p.jdkSpec = spec
 	p.jdkSrc = src
+	if src == "java-version" {
+		p.jdkFile = in.javaVersionFile
+	}
 	p.jdkName = entry.Name
 	p.jdkVersion = entry.Version
 	bin := "bin/java"

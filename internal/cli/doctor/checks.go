@@ -245,3 +245,50 @@ func checkSettingsFile(wsRoot, file, check, injected string) output.Result {
 	}
 	return ok(file, "workspace", check, map[string]any{"injected": injected})
 }
+
+func checkJavaVersionFile(ws *workspace.Workspace, repo workspace.Repo, jdkReg *jdk.Registry) output.Result {
+	const check = "javaVersionFile"
+	p := filepath.Join(ws.AbsPath(repo), ".java-version")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return skipped(repo.Name, "workspace", check, "no .java-version")
+	}
+	major, distro, parsed := jdk.ParseJavaVersionFile(string(data))
+	if !parsed {
+		return failed(repo.Name, "workspace", check, output.CodeConfigError,
+			fmt.Sprintf("%s is not parseable", filepath.ToSlash(p)),
+			"write a version like 17 or temurin-17.0.13 into .java-version")
+	}
+	entry, spec := jdk.ResolveJavaVersionSpec(jdkReg, major, distro)
+	if entry == nil {
+		return failed(repo.Name, "workspace", check, output.CodeJDKNotFound,
+			fmt.Sprintf("jdk %q (from %s) is not registered", spec, filepath.ToSlash(p)),
+			"run: barista jdk list; register a matching JDK")
+	}
+	return ok(repo.Name, "workspace", check, map[string]any{
+		"file": filepath.ToSlash(p), "jdk": entry.Name, "version": entry.Version,
+	})
+}
+
+func checkMavenWrapperFile(ws *workspace.Workspace, repo workspace.Repo, mavenReg *maven.Registry) output.Result {
+	const check = "mavenWrapperFile"
+	p := filepath.Join(ws.AbsPath(repo), ".mvn", "wrapper", "maven-wrapper.properties")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return skipped(repo.Name, "workspace", check, "no maven-wrapper.properties")
+	}
+	version, parsed := maven.ExtractWrapperVersion(string(data))
+	if !parsed {
+		return failed(repo.Name, "workspace", check, output.CodeConfigError,
+			fmt.Sprintf("%s has no recognizable distributionUrl", filepath.ToSlash(p)),
+			"fix the distributionUrl in maven-wrapper.properties")
+	}
+	if _, _, e := mavenReg.Resolve(version); e != nil {
+		return failed(repo.Name, "workspace", check, output.CodeMavenNotFound,
+			fmt.Sprintf("maven %s (from %s) is not registered", version, filepath.ToSlash(p)),
+			"run: barista maven install "+version)
+	}
+	return ok(repo.Name, "workspace", check, map[string]any{
+		"file": filepath.ToSlash(p), "maven": version,
+	})
+}

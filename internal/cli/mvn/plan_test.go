@@ -357,3 +357,161 @@ func TestPlanNestedRepoWins(t *testing.T) {
 		t.Errorf("want nested→temurin8, got %s→%s", p.repoName, p.jdkName)
 	}
 }
+
+func TestPlanJavaVersionLevel(t *testing.T) {
+	withFile := func(in planInput, distro string) planInput {
+		in.javaVersionMajor = 17
+		in.javaVersionDistro = distro
+		in.javaVersionFile = filepath.Join(in.wsRoot, "repos", "app", ".java-version")
+		return in
+	}
+
+	t.Run("beats repo workspace and user", func(t *testing.T) {
+		in := withFile(wsInput(t), "")
+		in.repos[0].Properties = map[string]string{"jdk": "8"}
+		in.props = workspace.Properties{"jdk": "temurin8"}
+		in.mavenReg.Jdk = "temurin8"
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.jdkSrc != "java-version" || p.jdkName != "temurin17" || p.jdkFile == "" {
+			t.Errorf("want java-version→temurin17, got %s→%s file=%q", p.jdkSrc, p.jdkName, p.jdkFile)
+		}
+	})
+
+	t.Run("loses to flag", func(t *testing.T) {
+		in := withFile(wsInput(t), "")
+		in.jdkFlag = "8"
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.jdkSrc != "flag" || p.jdkName != "temurin8" {
+			t.Errorf("want flag→temurin8, got %s→%s", p.jdkSrc, p.jdkName)
+		}
+	})
+
+	t.Run("distro hint hits named entry", func(t *testing.T) {
+		in := withFile(wsInput(t), "temurin")
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.jdkSpec != "temurin17" || p.jdkName != "temurin17" {
+			t.Errorf("want spec temurin17, got %s→%s", p.jdkSpec, p.jdkName)
+		}
+	})
+
+	t.Run("distro hint degrades to major", func(t *testing.T) {
+		in := withFile(wsInput(t), "zulu")
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.jdkSrc != "java-version" || p.jdkSpec != "17" || p.jdkName != "temurin17" {
+			t.Errorf("want java-version→17→temurin17, got %s spec=%s name=%s", p.jdkSrc, p.jdkSpec, p.jdkName)
+		}
+	})
+
+	t.Run("unresolvable fails loudly with file source", func(t *testing.T) {
+		in := wsInput(t)
+		in.javaVersionMajor = 21
+		in.javaVersionFile = filepath.Join(in.wsRoot, ".java-version")
+		_, e := planExec(in)
+		if e == nil || e.Code != output.CodeJDKNotFound {
+			t.Fatalf("want JDK_NOT_FOUND, got %+v", e)
+		}
+		if !strings.Contains(e.Message, ".java-version") {
+			t.Errorf("message must name .java-version, got %q", e.Message)
+		}
+	})
+}
+
+func TestPlanWrapperLevel(t *testing.T) {
+	t.Run("wrapper beats workspace and user defaults", func(t *testing.T) {
+		in := wsInput(t)
+		in.mavenReg.Installations = append(in.mavenReg.Installations, maven.Entry{Name: "maven-4", Version: "4.0.0-rc-4", Path: "/m/4"})
+		in.props = workspace.Properties{"maven.default": "maven-4"}
+		in.wrapperVersion = "4.0.0"
+		in.wrapperFile = filepath.Join(in.wsRoot, "repos", "app", ".mvn", "wrapper", "maven-wrapper.properties")
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.mavenSrc != "wrapper" || p.mavenName != "maven-4" || p.mavenFile == "" {
+			t.Errorf("want wrapper→maven-4, got %s→%s file=%q", p.mavenSrc, p.mavenName, p.mavenFile)
+		}
+	})
+
+	t.Run("unregistered wrapper version fails loudly", func(t *testing.T) {
+		in := wsInput(t)
+		in.wrapperVersion = "4.0.0"
+		_, e := planExec(in)
+		if e == nil || e.Code != output.CodeMavenNotFound {
+			t.Fatalf("want MAVEN_NOT_FOUND, got %+v", e)
+		}
+		if !strings.Contains(e.Message, "maven-wrapper.properties") || !strings.Contains(e.Message, "4.0.0") {
+			t.Errorf("message must name source and version, got %q", e.Message)
+		}
+		if !strings.Contains(e.Hint, "barista maven install 4.0.0") {
+			t.Errorf("hint must offer install, got %q", e.Hint)
+		}
+	})
+
+	t.Run("no wrapper falls through to workspace default", func(t *testing.T) {
+		in := wsInput(t)
+		in.props = workspace.Properties{"maven.default": "maven-3.9"}
+		p, e := planExec(in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.mavenSrc != "workspace" || p.mavenFile != "" {
+			t.Errorf("want workspace source, got %s file=%q", p.mavenSrc, p.mavenFile)
+		}
+	})
+}
+
+func TestDetectFilesSwitch(t *testing.T) {
+	if !detectFilesEnabled(nil) {
+		t.Error("nil props must default to enabled")
+	}
+	if !detectFilesEnabled(workspace.Properties{"detect.files": true}) {
+		t.Error("explicit true must be enabled")
+	}
+	if detectFilesEnabled(workspace.Properties{"detect.files": false}) {
+		t.Error("explicit false must disable")
+	}
+}
+
+func TestDetectJavaVersionFile(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repos", "app")
+	deep := filepath.Join(repo, "src")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(repo, ".java-version")
+	if err := os.WriteFile(file, []byte("temurin-17.0.13\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	major, distro, got := detectJavaVersionFile(deep, root)
+	if major != 17 || distro != "temurin" || got != file {
+		t.Errorf("got (%d, %q, %q), want (17, temurin, %q)", major, distro, got, file)
+	}
+
+	if major, _, _ := detectJavaVersionFile(root, root); major != 0 {
+		t.Error("file above boundary must not be detected")
+	}
+
+	if err := os.WriteFile(file, []byte("garbage"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if major, _, _ := detectJavaVersionFile(deep, root); major != 0 {
+		t.Error("unparseable file must be treated as absent")
+	}
+}

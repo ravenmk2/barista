@@ -219,3 +219,82 @@ func TestCheckSettingsFile(t *testing.T) {
 		t.Errorf("present settings.xml want ok with injection note, got %v", r)
 	}
 }
+
+func TestCheckJavaVersionFile(t *testing.T) {
+	root := t.TempDir()
+	ws := &workspace.Workspace{Root: root, Repos: &workspace.ReposFile{}}
+	repo := workspace.Repo{Name: "app", Path: "repos/app"}
+	jdkReg := &jdk.Registry{JDKs: []jdk.Entry{{Name: "temurin17", Major: 17, Version: "17.0.12", Path: "/j/17"}}}
+	dir := filepath.Join(root, "repos", "app")
+
+	if r := checkJavaVersionFile(ws, repo, jdkReg); r.Status != output.StatusSkipped {
+		t.Errorf("absent file want skipped, got %s", r.Status)
+	}
+
+	write := func(content string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ".java-version"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write("temurin-17\n")
+	if r := checkJavaVersionFile(ws, repo, jdkReg); r.Status != output.StatusOK {
+		t.Errorf("resolvable file want ok, got %v", r.Error)
+	}
+
+	write("21\n")
+	r := checkJavaVersionFile(ws, repo, jdkReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeJDKNotFound {
+		t.Errorf("unregistered major want failed JDK_NOT_FOUND, got %v", r)
+	}
+
+	write("garbage\n")
+	r = checkJavaVersionFile(ws, repo, jdkReg)
+	if r.Status != output.StatusFailed || r.Error.Hint == "" {
+		t.Errorf("unparseable file want failed with hint, got %v", r)
+	}
+}
+
+func TestCheckMavenWrapperFile(t *testing.T) {
+	root := t.TempDir()
+	ws := &workspace.Workspace{Root: root, Repos: &workspace.ReposFile{}}
+	repo := workspace.Repo{Name: "app", Path: "repos/app"}
+	mavenReg := &maven.Registry{Installations: []maven.Entry{{Name: "maven-3.9", Version: "3.9.11", Path: "/m/3.9"}}}
+	dir := filepath.Join(root, "repos", "app", ".mvn", "wrapper")
+
+	if r := checkMavenWrapperFile(ws, repo, mavenReg); r.Status != output.StatusSkipped {
+		t.Errorf("absent file want skipped, got %s", r.Status)
+	}
+
+	write := func(content string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "maven-wrapper.properties"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write("distributionUrl=https://example.com/apache-maven-3.9.9-bin.zip\n")
+	if r := checkMavenWrapperFile(ws, repo, mavenReg); r.Status != output.StatusOK {
+		t.Errorf("prefix-resolvable version want ok, got %v", r.Error)
+	}
+
+	write("distributionUrl=https://example.com/apache-maven-4.0.0-bin.zip\n")
+	r := checkMavenWrapperFile(ws, repo, mavenReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeMavenNotFound {
+		t.Errorf("unregistered version want failed MAVEN_NOT_FOUND, got %v", r)
+	}
+	if r.Error.Hint != "run: barista maven install 4.0.0" {
+		t.Errorf("hint must offer install, got %q", r.Error.Hint)
+	}
+
+	write("distributionUrl=https://example.com/maven.zip\n")
+	r = checkMavenWrapperFile(ws, repo, mavenReg)
+	if r.Status != output.StatusFailed || r.Error.Hint == "" {
+		t.Errorf("unparseable file want failed with hint, got %v", r)
+	}
+}

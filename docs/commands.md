@@ -190,7 +190,7 @@ barista repo remove order-service --delete --yes
 | `env <major\|name>`           | 打印 JAVA_HOME/PATH 导出语句（`--shell sh\|cmd\|powershell`，缺省自动检测当前 shell，供 eval / CI 消费） |
 | `set-default <major> <name>` | 设置某个 major 版本的默认 JDK                               |
 | `set-install-dir <path>`     | 设置托管安装根目录（写入 jdk.json `installDir`；`--reset` 恢复内置默认） |
-| `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace `.barista/properties.json` 的 `jdk` 键） |
+| `use <major\|name>`          | 设置当前工作区的 JDK（写 workspace `.barista/properties.json` 的 `jdk` 键；cwd 位于 git 检出内时同时写 `<检出根>/.java-version`） |
 | `remove <name>`              | 仅注销，保留磁盘文件（级联清理指向它的 defaults）           |
 | `uninstall <name>`           | 删除 managed 安装并注销（级联清理 defaults）                |
 
@@ -205,6 +205,7 @@ barista repo remove order-service --delete --yes
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
 - remove：直接注销，无确认、不删文件（幂等），并级联清理 jdk.json 中所有指向该 JDK 的 defaults
 - uninstall：仅作用于 managed 条目；确认契约为 TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
+- use：除写 workspace properties.json 外，cwd 上爬命中 `.git`（文件或目录形态均可，边界为 workspace 根，取最近的嵌套检出）时，向该检出根原子写 `.java-version`，内容为解析后条目的精确版本（如 `17.0.13`）；已存在且值不同则覆盖并在 text 输出提示 `updated <path>/.java-version (<old> → <new>)`；不依赖 repos.json 注册（手工克隆的检出同样生效）；不在检出内则行为不变；写入失败结果降级 failed（CONFIG_ERROR），properties 不回滚；不受 `detect.files` 开关影响
 
 ```bash
 barista jdk discover
@@ -269,11 +270,18 @@ barista mvn [flags] -- <mvn args...>
 
 ### 解析链（高 → 低）
 
-- Maven 安装：workspace properties.json `maven.default` > user maven.json default（无 repo 级）
-- JDK：`--jdk` > repo `properties["jdk"]` > workspace properties.json `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
+- Maven 安装：`.mvn/wrapper/maven-wrapper.properties` 的 `distributionUrl` 版本 > workspace properties.json `maven.default` > user maven.json default（无 repo 级）
+- JDK：`--jdk` > `.java-version` 文件 > repo `properties["jdk"]` > workspace properties.json `jdk` > user maven.json jdk > ambient（不动 JAVA_HOME/PATH）
 - settings.xml：存在 `.barista/maven/settings.xml` 时注入 `-s`（自行传 `-s`/`--settings` 则跳过）；同目录 `settings-security.xml` 存在时配套注入 `-Dsettings.security`（自行传 `-s`/`--settings` 或 `-Dsettings.security` 则跳过）
 - 本地仓库：workspace properties.json `maven.repo.local` 注入 `-Dmaven.repo.local`（自行传则跳过）；相对路径基于 workspace 根，支持 `~` 展开
 - launch：`--launch` > repo `maven.launch` > workspace properties.json `maven.launch` > `script`
+
+### 文件检测（`.java-version` 与 wrapper）
+
+- `.java-version`：从 cwd 逐级上爬查找，边界为最近的 `.git` 检出根（worktree 的 `.git` 文件形态兼容，不依赖 repos.json 注册）；无检出根时边界为 workspace 根，workspace 外则只在 cwd 单点查找。内容支持 `17` / `17.0.13` / `1.8`（→ major 8）及 distro 词元（`temurin-17`、`temurin@17`、`17.0.13-tem`，别名 tem/ms/cor/zul/grl 映射全称）；distro 词元命中时先试注册名 `<distro><major>`（如 `temurin17`），落空回退 major 解析；声明的版本未注册响亮报 `JDK_NOT_FOUND`（exit 2，message 带来源）；内容无法解析时视为该级不存在，继续回退
+- wrapper：在 `findBasedir` 命中的 basedir（感知 `MAVEN_BASEDIR` / `-f` / 上爬 `.mvn`）下读 `.mvn/wrapper/maven-wrapper.properties`，从 `distributionUrl` 提取 `apache-maven-<version>-bin.` 版本，经注册表逐级放宽解析；未注册响亮报 `MAVEN_NOT_FOUND`（hint 指向 `barista maven install <version>`）
+- 退出开关：workspace properties.json 键 `detect.files=false` 关闭上述两类文件检测（不影响 `jdk use` 的 `.java-version` 写入）；无 workspace 时开关不存在、视为开启
+- `--dry-run` 输出中来源为文件的层级带 `file` 字段（text 与 JSON 均体现）
 
 ### 其他行为
 
@@ -303,8 +311,9 @@ barista java [flags] -- <java args...>
 
 ### 解析链（高 → 低）
 
-- JDK：`--jdk` > repo `properties["jdk"]` > workspace properties.json `jdk` > ambient（PATH 中的 java，不动 JAVA_HOME/PATH）
-- 显式层级（flag/repo/workspace）解析不到注册 JDK 时响亮报 `JDK_NOT_FOUND`（exit 2，message 带来源），不静默回退
+- JDK：`--jdk` > `.java-version` 文件 > repo `properties["jdk"]` > workspace properties.json `jdk` > ambient（PATH 中的 java，不动 JAVA_HOME/PATH）
+- `.java-version` 的查找边界、格式与失败语义与 `barista mvn` 一致（见上文"文件检测"小节，含 `detect.files=false` 开关）
+- 显式层级（flag/文件/repo/workspace）解析不到注册 JDK 时响亮报 `JDK_NOT_FOUND`（exit 2，message 带来源），不静默回退
 - 无任何声明且 PATH 无 java 时报 `JDK_NOT_FOUND`（exit 2）
 
 ### 其他行为
@@ -333,7 +342,7 @@ barista doctor [--deep]
 ### 检查项
 
 - user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）；两者文件不存在报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn 执行器的 basedir 查找语义不同）
 
 ### 要点
 

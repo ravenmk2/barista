@@ -13,16 +13,21 @@ import (
 )
 
 type planInput struct {
-	cwd         string
-	goos        string
-	jdkFlag     string
-	launchFlag  string
-	passthrough []string
-	wsRoot      string
-	repos       []workspace.Repo
-	props       workspace.Properties
-	mavenReg    *maven.Registry
-	jdkReg      *jdk.Registry
+	cwd               string
+	goos              string
+	jdkFlag           string
+	launchFlag        string
+	passthrough       []string
+	wsRoot            string
+	repos             []workspace.Repo
+	props             workspace.Properties
+	mavenReg          *maven.Registry
+	jdkReg            *jdk.Registry
+	javaVersionMajor  int
+	javaVersionDistro string
+	javaVersionFile   string
+	wrapperVersion    string
+	wrapperFile       string
 }
 
 type execPlan struct {
@@ -35,9 +40,11 @@ type execPlan struct {
 	mavenHome        string
 	mavenBin         string
 	mavenSrc         string
+	mavenFile        string
 	javaHome         string
 	jdkSpec          string
 	jdkSrc           string
+	jdkFile          string
 	jdkName          string
 	jdkVersion       string
 	settings         string
@@ -72,6 +79,9 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 	p.mavenVersion = mvnEntry.Version
 	p.mavenHome = mvnEntry.Path
 	p.mavenSrc = mvnSrc
+	if mvnSrc == "wrapper" {
+		p.mavenFile = in.wrapperFile
+	}
 	bin := "bin/mvn"
 	if in.goos == "windows" {
 		bin = "bin/mvn.cmd"
@@ -86,6 +96,9 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 		p.javaHome = jdkEntry.Path
 		p.jdkSpec = spec
 		p.jdkSrc = jdkSrc
+		if jdkSrc == "java-version" {
+			p.jdkFile = in.javaVersionFile
+		}
 		p.jdkName = jdkEntry.Name
 		p.jdkVersion = jdkEntry.Version
 	}
@@ -132,6 +145,17 @@ func planExec(in planInput) (*execPlan, *output.ErrInfo) {
 }
 
 func resolveMaven(in planInput) (*maven.Entry, string, *output.ErrInfo) {
+	if in.wrapperVersion != "" {
+		entry, _, e := in.mavenReg.Resolve(in.wrapperVersion)
+		if e != nil {
+			return nil, "", &output.ErrInfo{
+				Code:    output.CodeMavenNotFound,
+				Message: fmt.Sprintf("maven %s (from maven-wrapper.properties) is not registered", in.wrapperVersion),
+				Hint:    "run: barista maven install " + in.wrapperVersion,
+			}
+		}
+		return entry, "wrapper", nil
+	}
 	if v, ok := in.props.String("maven.default"); ok && v != "" {
 		if e := in.mavenReg.Find(v); e != nil {
 			return e, "workspace", nil
@@ -161,6 +185,17 @@ func resolveMaven(in planInput) (*maven.Entry, string, *output.ErrInfo) {
 
 func resolveJdk(in planInput, repo *workspace.Repo) (*jdk.Entry, string, string, *output.ErrInfo) {
 	spec, src := in.jdkFlag, "flag"
+	if spec == "" && in.javaVersionMajor > 0 {
+		entry, vSpec := jdk.ResolveJavaVersionSpec(in.jdkReg, in.javaVersionMajor, in.javaVersionDistro)
+		if entry == nil {
+			return nil, "", "", &output.ErrInfo{
+				Code:    output.CodeJDKNotFound,
+				Message: fmt.Sprintf("jdk %q (from .java-version) is not registered", vSpec),
+				Hint:    "run: barista jdk list",
+			}
+		}
+		return entry, vSpec, "java-version", nil
+	}
 	if spec == "" && repo != nil {
 		if v, ok := repo.Property("jdk"); ok && v != "" {
 			spec, src = v, "repo"
