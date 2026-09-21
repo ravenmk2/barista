@@ -42,21 +42,9 @@ func addCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			if name == "" {
 				name = autoName(reg, info.Version)
-			} else {
-				if !maven.ValidName(name) {
-					failRes(&output.ErrInfo{
-						Code:    output.CodeConfigError,
-						Message: fmt.Sprintf("invalid maven name %q (want [a-z0-9][a-z0-9._-]*)", name),
-					})
-					return nil
-				}
-				if maven.LooksLikeVersion(name) {
-					failRes(&output.ErrInfo{
-						Code:    output.CodeConfigError,
-						Message: fmt.Sprintf("maven name %q must not look like a version (ambiguous in barista maven which)", name),
-					})
-					return nil
-				}
+			} else if e := customNameError(name); e != nil {
+				failRes(e)
+				return nil
 			}
 			res.Name = name
 			res.Path = filepath.ToSlash(info.Home)
@@ -96,7 +84,7 @@ func addCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String("name", "", "register under this name (default: maven-<major.minor> from the probed version)")
+	cmd.Flags().String("name", "", "register under this name (default: maven-<version> from the probed version)")
 	cmd.Flags().Bool("default", false, "set as the default maven")
 	return cmd
 }

@@ -35,6 +35,7 @@ func NewCmd(exit *int) *cobra.Command {
 		homeCmd(),
 		discoverCmd(),
 		installCmd(),
+		availableCmd(),
 		uninstallCmd(),
 		configCmd(),
 	)
@@ -234,5 +235,21 @@ func resolveJdkSpec(cmd *cobra.Command, spec string) (*jdk.Entry, *output.ErrInf
 }
 
 func autoName(reg *maven.Registry, version string) string {
-	return reg.AvailableName("maven-" + maven.TwoSegment(version))
+	return reg.AvailableName(maven.NameFor(version))
+}
+
+func customNameError(name string) *output.ErrInfo {
+	if !maven.ValidName(name) {
+		return &output.ErrInfo{
+			Code:    output.CodeConfigError,
+			Message: fmt.Sprintf("invalid maven name %q (want [a-z0-9][a-z0-9._-]*)", name),
+		}
+	}
+	if maven.LooksLikeVersion(name) {
+		return &output.ErrInfo{
+			Code:    output.CodeConfigError,
+			Message: fmt.Sprintf("maven name %q must not look like a version (ambiguous in barista maven which)", name),
+		}
+	}
+	return nil
 }

@@ -62,17 +62,17 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-func TestTwoSegment(t *testing.T) {
+func TestNameFor(t *testing.T) {
 	cases := map[string]string{
-		"3.9.11":     "3.9",
-		"4.0.0-rc-4": "4.0",
-		"3.8":        "3.8",
-		"3":          "3",
+		"3.9.11":     "maven-3.9.11",
+		"4.0.0-rc-4": "maven-4.0.0-rc-4",
+		"3.8":        "maven-3.8",
+		"3":          "maven-3",
 		"bad":        "",
 	}
 	for in, want := range cases {
-		if got := TwoSegment(in); got != want {
-			t.Errorf("TwoSegment(%q) = %q, want %q", in, got, want)
+		if got := NameFor(in); got != want {
+			t.Errorf("NameFor(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

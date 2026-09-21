@@ -44,6 +44,7 @@ const (
 	CodeMavenInstallFailed      = "MAVEN_INSTALL_FAILED"
 	CodeMavenNotManaged         = "MAVEN_NOT_MANAGED"
 	CodeMavenUninstallFailed    = "MAVEN_UNINSTALL_FAILED"
+	CodeMavenAvailableFailed    = "MAVEN_AVAILABLE_FAILED"
 	CodeMavenExecFailed         = "MAVEN_EXEC_FAILED"
 	CodeJavaExecFailed          = "JAVA_EXEC_FAILED"
 	CodeRepoRemoteMismatch      = "REPO_REMOTE_MISMATCH"

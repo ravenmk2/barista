@@ -13,10 +13,10 @@ import (
 func testRegistry() *Registry {
 	return &Registry{
 		Installations: []Entry{
-			{Name: "maven-3.8", Version: "3.8.9", Path: "/opt/maven-3.8.9"},
-			{Name: "maven-3.9", Version: "3.9.11", Path: "/opt/maven-3.9.11", Managed: true},
+			{Name: "maven-3.8.9", Version: "3.8.9", Path: "/opt/maven-3.8.9"},
+			{Name: "maven-3.9.11", Version: "3.9.11", Path: "/opt/maven-3.9.11", Managed: true},
 		},
-		Default: "maven-3.9",
+		Default: "maven-3.9.11",
 		Jdk:     "17",
 	}
 }
@@ -109,7 +109,7 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	if e != nil {
 		t.Fatalf("Load: %v", e)
 	}
-	if len(loaded.Installations) != 2 || loaded.Default != "maven-3.9" || loaded.Jdk != "17" {
+	if len(loaded.Installations) != 2 || loaded.Default != "maven-3.9.11" || loaded.Jdk != "17" {
 		t.Errorf("roundtrip mismatch: %+v", loaded)
 	}
 	if !loaded.Installations[1].Managed {
@@ -119,17 +119,17 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 
 func TestAddDuplicate(t *testing.T) {
 	reg := testRegistry()
-	if e := reg.Add(Entry{Name: "maven-3.8", Version: "3.8.9", Path: "/x"}); e == nil || e.Code != output.CodeMavenExists {
+	if e := reg.Add(Entry{Name: "maven-3.8.9", Version: "3.8.9", Path: "/x"}); e == nil || e.Code != output.CodeMavenExists {
 		t.Errorf("want MAVEN_EXISTS, got %v", e)
 	}
-	if e := reg.Add(Entry{Name: "maven-4", Version: "4.0.0", Path: "/x"}); e != nil {
+	if e := reg.Add(Entry{Name: "maven-4.0.0", Version: "4.0.0", Path: "/x"}); e != nil {
 		t.Errorf("Add: %v", e)
 	}
 }
 
 func TestRemoveClearsDefault(t *testing.T) {
 	reg := testRegistry()
-	removed, cleared, e := reg.Remove("maven-3.9")
+	removed, cleared, e := reg.Remove("maven-3.9.11")
 	if e != nil || removed == nil {
 		t.Fatalf("Remove: %v", e)
 	}
@@ -139,7 +139,7 @@ func TestRemoveClearsDefault(t *testing.T) {
 	if reg.Jdk != "17" {
 		t.Errorf("jdk binding must survive remove, got %q", reg.Jdk)
 	}
-	_, cleared, e = reg.Remove("maven-3.8")
+	_, cleared, e = reg.Remove("maven-3.8.9")
 	if e != nil || cleared {
 		t.Errorf("non-default remove: cleared=%v, err=%v", cleared, e)
 	}
@@ -150,7 +150,7 @@ func TestRemoveClearsDefault(t *testing.T) {
 
 func TestSetDefault(t *testing.T) {
 	reg := testRegistry()
-	if _, e := reg.SetDefault("maven-3.8"); e != nil || reg.Default != "maven-3.8" {
+	if _, e := reg.SetDefault("maven-3.8.9"); e != nil || reg.Default != "maven-3.8.9" {
 		t.Errorf("SetDefault: %v, %q", e, reg.Default)
 	}
 	if _, e := reg.SetDefault("nope"); e == nil || e.Code != output.CodeMavenNotFound {
@@ -160,12 +160,12 @@ func TestSetDefault(t *testing.T) {
 
 func TestAvailableName(t *testing.T) {
 	reg := testRegistry()
-	if got := reg.AvailableName("maven-4"); got != "maven-4" {
-		t.Errorf("AvailableName = %q, want maven-4", got)
+	if got := reg.AvailableName("maven-4.0.0"); got != "maven-4.0.0" {
+		t.Errorf("AvailableName = %q, want maven-4.0.0", got)
 	}
-	reg.Installations = append(reg.Installations, Entry{Name: "maven-3.9-1", Version: "3.9.9", Path: "/y"})
-	if got := reg.AvailableName("maven-3.9"); got != "maven-3.9-2" {
-		t.Errorf("AvailableName = %q, want maven-3.9-2", got)
+	reg.Installations = append(reg.Installations, Entry{Name: "maven-3.9.11-1", Version: "3.9.11", Path: "/y"})
+	if got := reg.AvailableName("maven-3.9.11"); got != "maven-3.9.11-2" {
+		t.Errorf("AvailableName = %q, want maven-3.9.11-2", got)
 	}
 }
 

@@ -52,9 +52,9 @@ func TestJdkSpecsBrokenRegistry(t *testing.T) {
 func TestMavenSpecs(t *testing.T) {
 	home := setHome(t)
 	writeFile(t, filepath.Join(home, ".barista", "maven.json"),
-		`{"installations":[{"name":"maven-3.9","version":"3.9.11","path":"/m/3.9"}],"default":"maven-3.9"}`)
+		`{"installations":[{"name":"maven-3.9.11","version":"3.9.11","path":"/m/3.9"}],"default":"maven-3.9.11"}`)
 	joined := strings.Join(MavenSpecs(), "\n")
-	if !strings.Contains(joined, "maven-3.9\t3.9.11") || !strings.Contains(joined, "3.9.11\tmaven-3.9") {
+	if !strings.Contains(joined, "maven-3.9.11\t3.9.11") || !strings.Contains(joined, "3.9.11\tmaven-3.9.11") {
 		t.Errorf("unexpected specs: %v", joined)
 	}
 }

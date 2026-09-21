@@ -39,15 +39,22 @@ func ParseVersion(s string) (segs []int, qualifier string, err error) {
 	return segs, qualifier, nil
 }
 
-func TwoSegment(s string) string {
-	segs, _, err := ParseVersion(s)
+// NameFor returns the default registry name for a version: "maven-" plus the
+// full normalized version, qualifier included (4.0.0-rc-4 -> maven-4.0.0-rc-4).
+func NameFor(s string) string {
+	segs, qualifier, err := ParseVersion(s)
 	if err != nil {
 		return ""
 	}
-	if len(segs) == 1 {
-		return strconv.Itoa(segs[0])
+	parts := make([]string, len(segs))
+	for i, n := range segs {
+		parts[i] = strconv.Itoa(n)
 	}
-	return fmt.Sprintf("%d.%d", segs[0], segs[1])
+	v := strings.Join(parts, ".")
+	if qualifier != "" {
+		v += "-" + qualifier
+	}
+	return "maven-" + v
 }
 
 func CompareVersions(a, b string) int {

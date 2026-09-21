@@ -83,7 +83,7 @@ func TestCheckJdkDefaults(t *testing.T) {
 func TestCheckMavenEntry(t *testing.T) {
 	root := t.TempDir()
 	home := makeMavenHome(t, root, "m-3.9", "3.9.9")
-	e := maven.Entry{Name: "maven-3.9", Version: "3.9.9", Path: home}
+	e := maven.Entry{Name: "maven-3.9.9", Version: "3.9.9", Path: home}
 	if r := checkMavenEntry(e); r.Status != output.StatusOK {
 		t.Errorf("want ok, got %v", r.Error)
 	}
@@ -262,7 +262,7 @@ func TestCheckMavenWrapperFile(t *testing.T) {
 	root := t.TempDir()
 	ws := &workspace.Workspace{Root: root, Repos: &workspace.ReposFile{}}
 	repo := workspace.Repo{Name: "app", Path: "repos/app"}
-	mavenReg := &maven.Registry{Installations: []maven.Entry{{Name: "maven-3.9", Version: "3.9.11", Path: "/m/3.9"}}}
+	mavenReg := &maven.Registry{Installations: []maven.Entry{{Name: "maven-3.9.11", Version: "3.9.11", Path: "/m/3.9"}}}
 	dir := filepath.Join(root, "repos", "app", ".mvn", "wrapper")
 
 	if r := checkMavenWrapperFile(ws, repo, mavenReg); r.Status != output.StatusSkipped {

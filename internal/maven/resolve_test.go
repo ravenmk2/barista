@@ -9,10 +9,10 @@ import (
 func resolveFixture() *Registry {
 	return &Registry{
 		Installations: []Entry{
-			{Name: "maven-3.8", Version: "3.8.9", Path: "/a"},
-			{Name: "maven-3.9", Version: "3.9.9", Path: "/b"},
-			{Name: "maven-3.9-1", Version: "3.9.11", Path: "/c"},
-			{Name: "maven-4.0", Version: "4.0.0-rc-4", Path: "/d"},
+			{Name: "maven-3.8.9", Version: "3.8.9", Path: "/a"},
+			{Name: "maven-3.9.9", Version: "3.9.9", Path: "/b"},
+			{Name: "maven-3.9.11", Version: "3.9.11", Path: "/c"},
+			{Name: "maven-4.0.0-rc-4", Version: "4.0.0-rc-4", Path: "/d"},
 		},
 	}
 }
@@ -24,16 +24,16 @@ func TestResolve(t *testing.T) {
 		wantSource  string
 		wantErrCode string
 	}{
-		{"maven-3.9", "maven-3.9", "name", ""},
-		{"3.9.9", "maven-3.9", "version", ""},
-		{"3.9.11", "maven-3.9-1", "version", ""},
-		{"3.9.1", "maven-3.9-1", "prefix", ""},
-		{"3.9", "maven-3.9-1", "prefix", ""},
-		{"3", "maven-3.9-1", "prefix", ""},
-		{"3.8", "maven-3.8", "prefix", ""},
-		{"3.7", "maven-3.9-1", "prefix", ""},
-		{"4", "maven-4.0", "prefix", ""},
-		{"4.0.0-rc-4", "maven-4.0", "version", ""},
+		{"maven-3.9.9", "maven-3.9.9", "name", ""},
+		{"3.9.9", "maven-3.9.9", "version", ""},
+		{"3.9.11", "maven-3.9.11", "version", ""},
+		{"3.9.1", "maven-3.9.11", "prefix", ""},
+		{"3.9", "maven-3.9.11", "prefix", ""},
+		{"3", "maven-3.9.11", "prefix", ""},
+		{"3.8", "maven-3.8.9", "prefix", ""},
+		{"3.7", "maven-3.9.11", "prefix", ""},
+		{"4", "maven-4.0.0-rc-4", "prefix", ""},
+		{"4.0.0-rc-4", "maven-4.0.0-rc-4", "version", ""},
 		{"5", "", "", output.CodeMavenNotFound},
 		{"nope", "", "", output.CodeMavenNotFound},
 	}
@@ -66,10 +66,10 @@ func TestResolveDefault(t *testing.T) {
 	if _, _, err := reg.Resolve(""); err == nil || err.Code != output.CodeMavenNotFound {
 		t.Errorf("empty default: want MAVEN_NOT_FOUND, got %v", err)
 	}
-	reg.Default = "maven-3.8"
+	reg.Default = "maven-3.8.9"
 	e, source, err := reg.Resolve("")
-	if err != nil || e.Name != "maven-3.8" || source != "default" {
-		t.Errorf("Resolve(\"\") = %v, %q, %v; want maven-3.8, default", e, source, err)
+	if err != nil || e.Name != "maven-3.8.9" || source != "default" {
+		t.Errorf("Resolve(\"\") = %v, %q, %v; want maven-3.8.9, default", e, source, err)
 	}
 	reg.Default = "ghost"
 	if _, _, err := reg.Resolve(""); err == nil || err.Code != output.CodeMavenNotFound {

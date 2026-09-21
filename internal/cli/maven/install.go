@@ -18,6 +18,7 @@ func installCmd() *cobra.Command {
 		Use:   "install <version>",
 		Short: "Download Maven from the Apache archive (sha512-verified) into the managed install dir",
 		Example: `  barista maven install 3.9.11
+  barista maven install 3.9
   barista maven install 4.0.0-rc-4`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -39,13 +40,51 @@ func installCmd() *cobra.Command {
 				return nil
 			}
 			version := args[0]
-			name := autoName(reg, version)
-			res := output.Result{Name: name, Action: "install"}
+			name, _ := cmd.Flags().GetString("name")
+			res := output.Result{Action: "install"}
 			failRes := func(e *output.ErrInfo) {
 				res.Status = output.StatusFailed
 				res.Error = e
 				failResult(cmd, p, res)
 			}
+			versions, e := maven.Available(cmd.Context())
+			if e != nil {
+				failRes(e)
+				return nil
+			}
+			match, found := maven.MatchAvailable(version, versions)
+			if !found {
+				failRes(&output.ErrInfo{
+					Code:    output.CodeMavenNotFound,
+					Message: fmt.Sprintf("no maven version matching %q on the Apache archive", version),
+					Hint:    "list versions with: barista maven available --all",
+				})
+				return nil
+			}
+			jsonOut, _ := cmd.Flags().GetBool("json")
+			if match.Version != version {
+				if !jsonOut {
+					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("maven %s is not available; installing best match %s", version, match.Version)))
+				}
+				res.Detail = map[string]any{"requestedVersion": version}
+				version = match.Version
+			}
+			if name == "" {
+				name = autoName(reg, version)
+			} else {
+				if e := customNameError(name); e != nil {
+					failRes(e)
+					return nil
+				}
+				if reg.Find(name) != nil {
+					failRes(&output.ErrInfo{
+						Code:    output.CodeMavenExists,
+						Message: fmt.Sprintf("name %q is already registered", name),
+					})
+					return nil
+				}
+			}
+			res.Name = name
 			url, err := maven.ArchiveURL(version)
 			if err != nil {
 				failRes(&output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
@@ -65,7 +104,6 @@ func installCmd() *cobra.Command {
 				})
 				return nil
 			}
-			jsonOut, _ := cmd.Flags().GetBool("json")
 			if !jsonOut {
 				fmt.Fprintln(os.Stderr, p.Dim("downloading "+url))
 			}
@@ -169,10 +207,11 @@ func installCmd() *cobra.Command {
 			}
 			res.Status = output.StatusOK
 			res.Path = filepath.ToSlash(info.Home)
-			res.Detail = map[string]any{
-				"version": info.Version,
-				"managed": true,
+			if res.Detail == nil {
+				res.Detail = map[string]any{}
 			}
+			res.Detail["version"] = info.Version
+			res.Detail["managed"] = true
 			if !jsonOut {
 				fmt.Printf("installed %s (%s) at %s\n", p.Cyan(name), info.Version, filepath.ToSlash(info.Home))
 			}
@@ -180,5 +219,6 @@ func installCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().String("name", "", "register under this name (default: maven-<version>)")
 	return cmd
 }

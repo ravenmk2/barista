@@ -262,6 +262,7 @@ barista jdk which 17
 | `discover`              | 扫描 MAVEN_HOME/M2_HOME / sdkman / brew / scoop / 平台位置 / PATH 并注册 |
 | `add <path>`            | 注册已安装的 Maven（从 `lib/maven-core-*.jar` 文件名读版本，不起子进程） |
 | `install <version>`     | 从 Apache archive 下载（sha512 校验）安装到托管目录                     |
+| `available`             | 列出 Apache archive 上可下载的版本（`--all` 列出全部 patch）            |
 | `list`                  | 列出已注册 Maven（别名 `ls`）                                            |
 | `which [name\|version]` | 按名或版本解析（版本逐级放宽）；不传参数取生效默认（恒输出 JSON）      |
 | `path` / `home`         | 只打印 maven home 路径（`which --pathonly` 的快捷方式）                |
@@ -274,17 +275,19 @@ barista jdk which 17
 
 ### 要点
 
-- add：`--name` 指定注册名（默认 `maven-<major.minor>`，冲突自动追加序号）；名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；`--default` 同时设为默认
+- add / discover / install 的自动命名为 `maven-<version>`（完整版本号含 qualifier，如 `maven-3.9.11` / `maven-4.0.0-rc-4`），冲突自动追加 `-1` / `-2`；add 与 install 均支持 `--name` 指定注册名，名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；install 的 `--name` 与已注册名冲突报 MAVEN_EXISTS；add 的 `--default` 同时设为默认
 - set-default：对 name 校验同一名称模式 `[a-z0-9][a-z0-9._-]*`（不符为用法错误，exit 2），但不查版本号形态（remove/uninstall/set-default 本就强制精确名，不走模糊解析）
-- install：解压后 probe 校验版本与请求完全一致，失败清理目录
+- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀逐级放宽取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）并响亮告知替换（JSON detail 带 `requestedVersion`）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
+- available：抓取 archive.apache.org 目录列表（与 install 同一来源），默认每个 minor 线只列最新版本，`--all` 列全部；text 输出 VERSION/TAGS 表（latest / installed 标记，installed 按版本与注册表比对）；联网失败报 MAVEN_AVAILABLE_FAILED
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
 - set-jdk：只写 user 级 maven.json，写入的是用户给的原始 spec（如 `17`），而非解析后的注册名；workspace 级覆盖用 `barista jdk use`
 - remove/uninstall 契约与 jdk 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通；两者若为 user 级 default 均一并清除该 default
 
 ```bash
+barista maven available
 barista maven install 3.9.9
-barista maven set-default maven-3.9
+barista maven set-default maven-3.9.9
 barista jdk use 17
 barista maven config
 ```
@@ -389,7 +392,7 @@ barista doctor [--deep]
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes]
@@ -474,7 +477,7 @@ git 命令组（`barista git status --json`）：
 
 ```json
 {
-  "maven": { "name": "maven-3.9", "version": "3.9.9", "home": "...", "bin": "...", "source": "user" },
+  "maven": { "name": "maven-3.9.9", "version": "3.9.9", "home": "...", "bin": "...", "source": "user" },
   "jdk": { "spec": "17", "name": "temurin17", "version": "17.0.13", "javaHome": "...", "source": "workspace" },
   "launch": { "value": "script", "source": "default" },
   "args": ["clean", "install"],
