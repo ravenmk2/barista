@@ -1,8 +1,8 @@
-# 执行器详细设计（mvn / java）
+# 执行器详细设计（mvn / java / gradle）
 
-> 全局契约见 [../architecture.md](../architecture.md)；本文档是执行器域（`cli/mvn`、`cli/java` 及 maven 启动模式）的详细设计，改动该域前必读。
+> 全局契约见 [../architecture.md](../architecture.md)；本文档是执行器域（`cli/mvn`、`cli/java`、`cli/gradle` 组根及 maven 启动模式）的详细设计，改动该域前必读。
 
-`barista mvn` 与 `barista java` 是**执行器**而非管理命令：不走 runner / Result 契约，stdin / stdout / stderr 直接挂父进程（流式透传，无 TUI / 渲染层）。
+`barista mvn`、`barista java` 与 `barista gradle`（组根）是**执行器**而非管理命令：不走 runner / Result 契约，stdin / stdout / stderr 直接挂父进程（流式透传，无 TUI / 渲染层）。
 
 ## barista mvn
 
@@ -34,7 +34,26 @@
 - java 非零退出 → exit 1；启动失败 → JAVA_EXEC_FAILED（exit 2）
 - 环境组装同为纯函数 planExec：ambient 的 PATH 查找在 buildPlan 完成、以 ambientBin 注入，保持 planExec 可测
 
-## 启动模式（launch.go）
+## barista gradle（组根执行器）
+
+gradle 命令组的组根本身是执行器：`barista gradle [flags] -- <gradle args>`，`--` 后参数原样透传；管理子命令与透传参数同名时子命令优先（如 `barista gradle install 8.10.2` 走 install 子命令而非执行 `gradle install`）；缺 `--` 直接给 task 报 USAGE_ERROR（exit 2）；无参数且未给 flag 时显示帮助。
+
+- 环境组装是纯函数 `planExec`（cli/gradle/plan.go，同包单测）
+- Gradle 安装解析链：`wrapper distributionUrl 版本 > workspace gradle.default property > gradle.json default`（无 repo 级）
+- JDK 解析链：`--jdk > .java-version 文件 > cwd 命中 repo 的 properties["jdk"] > workspace jdk > gradle.json jdk > 环境原样`
+  - 显式指定的任一级（含文件声明）解析失败响亮报 JDK_NOT_FOUND / GRADLE_NOT_FOUND（exit 2，message 带来源）；命中则只对子进程设 JAVA_HOME
+- 文件检测（detectJavaVersionFile / wrapperVersion）在 buildPlan 装配层完成并以 planInput 字段注入，planExec 保持纯函数；wrapper 从 cwd 上爬定位 `gradle/wrapper/gradle-wrapper.properties`，查找边界为最近 `.git` 检出根（`workspace.FindGitRoot`，无 `MAVEN_BASEDIR` 对应物）；workspace properties 键 `detect.files=false` 整体关闭（与 mvn / java 共用开关）
+- 只有 script 启动：Unix 直接 `bin/gradle`；Windows 经 `cmd /c bin/gradle.bat`；无 `--launch` 对应物
+- gradle 非零退出 → exit 1；启动失败 → GRADLE_EXEC_FAILED（exit 2）；barista 自身配置错误 → exit 2 + 机器可读码
+- `--json` 只影响 exec 前的错误（ErrorEnvelope）与 `--dry-run` 输出；`--dry-run` 的 JSON detail 键：`gradle` / `jdk` / `args` / `command`，按解析结果可选 `workspace` / `repo` / `initScripts` / `gradleUserHome`；`gradle` / `jdk` 来源为文件的层级带 `file` 子键（text 输出同样体现）
+- workspace 发现是机会主义的：无 workspace = 跳过 repo / workspace 两级覆盖与全部注入，纯 user 级默认透传
+
+### 注入规则
+
+- `.barista/gradle/init.gradle` 与 `.barista/gradle/init.gradle.kts` 存在即各注入一个 `-I`（零配置 init script）；**透传参数已含 `-I` / `--init-script` 时整体跳过**（用户显式优先）
+- workspace property `gradle.user.home` 注入 `--gradle-user-home`（相对路径锚定 workspace root，支持 `~` 展开）；**透传已含 `-g` / `--gradle-user-home` / `-Dgradle.user.home` 时跳过**
+
+## mvn 启动模式（launch.go）
 
 - 解析链：`--launch > repo properties["maven.launch"] > workspace properties["maven.launch"] > 默认 script`；非法值报 CONFIG_ERROR
 - `script` 即上述包装脚本路径（Unix `bin/mvn` / Windows `cmd /c bin/mvn.cmd`）

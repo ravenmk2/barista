@@ -22,15 +22,15 @@ fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--v
 - text：非 TTY 逐条输出；TTY 下 git 命令组渲染实时面板
 - JSON：`--json` 时输出 envelope，含 `schemaVersion: 1`、`command`、`success`、`results`；结果顺序与声明顺序一致
 - 错误：stderr 输出 `barista: CODE: message`（可带 `hint:` 行），`--json` 时 stdout 另出 error envelope
-- 例外：`jdk`/`maven` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven 的 `path`/`home`/`which --pathonly` 输出纯路径，无尾随换行
-- jdk/maven 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
+- 例外：`jdk`/`maven`/`gradle` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven/gradle 的 `path`/`home`/`which --pathonly` 输出纯路径，无尾随换行
+- jdk/maven/gradle 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
 
 ### 退出码
 
 | 码  | 含义                                               |
 | --- | -------------------------------------------------- |
 | 0   | 全部成功                                           |
-| 1   | 至少一个结果失败（含 schema 校验不通过、mvn 子进程非零退出、which 解析失败） |
+| 1   | 至少一个结果失败（含 schema 校验不通过、mvn/gradle 子进程非零退出、which 解析失败） |
 | 2   | 用法错误、配置错误、确认类错误（如 CONFIRMATION_REQUIRED） |
 
 通用红线：stdout/stderr 严格分离；非 TTY 永不阻塞询问；一切操作幂等，可重复执行。
@@ -55,7 +55,8 @@ barista completion powershell >> $PROFILE
 - `--repo` / `--label`（git / deps 组）：当前工作区的仓库名与标签
 - jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
-- `mvn --jdk` / `java --jdk`：JDK spec
+- gradle 组位置参数：`which`/`path`/`home` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
+- `mvn --jdk` / `java --jdk` / `gradle --jdk`：JDK spec
 - `jdk env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
 - `jdk download --os` / `--arch`：linux/darwin/windows 与 amd64/arm64 静态枚举；`--output`：目录
 - `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录；`repo remove` 第一段：清单中的仓库名
@@ -367,6 +368,78 @@ barista java -- -version
 barista java --jdk 17 --dry-run -- -jar app.jar
 ```
 
+## gradle — Gradle 注册表管理与执行器
+
+注册表为 user 级 `~/.barista/gradle.json`。托管安装目录默认 `~/.barista/toolchains/gradle/`（gradle.json 顶层 `installDir` 字段，用 `barista gradle set-install-dir` 设置）。`set-default` 支持 `--scope user|workspace`（默认 user；workspace 写入 `<workspace>/.barista/properties.json`）；`set-jdk` 只写 user 级（workspace 级 JDK 用 `barista jdk use`）。
+
+组根本身是执行器：`barista gradle [flags] -- <gradle args...>` 在当前目录运行 Gradle；下列管理子命令与透传参数同名时子命令优先（如 `barista gradle install 8.10.2` 走 install 子命令）。
+
+### 子命令
+
+| 命令                     | 行为                                                                       |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `discover`               | 扫描 GRADLE_HOME / sdkman / brew / scoop / 平台位置 / PATH 并注册          |
+| `add <path>`             | 注册已安装的 Gradle（从 `lib/gradle-core-*.jar` 文件名读版本，不起子进程） |
+| `install <version>`      | 从 services.gradle.org 下载 bin 发行包（sha256 校验）安装到托管目录        |
+| `available`              | 列出 services.gradle.org 上可下载的版本（`--all` 含 rc/milestone 预发布与全部历史版本） |
+| `list`                   | 列出已注册 Gradle（别名 `ls`）                                             |
+| `which [name\|version]`  | 按名或版本解析（版本逐级放宽）；不传参数取生效默认（恒输出 JSON）          |
+| `path` / `home`          | 只打印 gradle home 路径（`which --pathonly` 的快捷方式）                   |
+| `set-default <name>`     | 设置默认 Gradle（`--scope` 选择写入层级）                                  |
+| `set-jdk <major\|name>`  | 设置运行 Gradle 的 JDK（按 jdk 注册表解析，写 user gradle.json）           |
+| `set-install-dir <path>` | 设置托管安装根目录（写入 gradle.json `installDir`；`--reset` 恢复内置默认） |
+| `config`                 | 查看生效配置（default / jdk / installDir 及 workspace 级项）及其来源       |
+| `remove <name>`          | 仅注销，保留磁盘文件（若为 user 级 default 一并清除）                      |
+| `uninstall <name>`       | 删除 managed 安装并注销（同样清除指向它的 user 级 default）                |
+
+### 执行器用法
+
+```txt
+barista gradle [flags] -- <gradle args...>
+```
+
+| flag        | 说明                                              |
+| ----------- | ------------------------------------------------- |
+| `--jdk`     | JDK spec（注册名或 major 版本），覆盖所有配置层级 |
+| `--dry-run` | 打印解析出的环境与完整命令行，不执行              |
+
+- `--` 后参数原样透传；缺 `--` 直接给 task 报 `USAGE_ERROR`（exit 2）；无参数且未给 flag 时显示帮助
+
+### 解析链（高 → 低）
+
+- Gradle 安装：`gradle/wrapper/gradle-wrapper.properties` 的 `distributionUrl` 版本 > workspace properties.json `gradle.default` > user gradle.json default（无 repo 级）
+- JDK：`--jdk` > `.java-version` 文件 > repo `properties["jdk"]` > workspace properties.json `jdk` > user gradle.json jdk > ambient（不动 JAVA_HOME/PATH）
+- init script：`.barista/gradle/init.gradle` 与 `.barista/gradle/init.gradle.kts` 存在即各注入 `-I`（自行传 `-I`/`--init-script` 则跳过）
+- gradle user home：workspace properties.json `gradle.user.home` 注入 `--gradle-user-home`（自行传 `-g`/`--gradle-user-home`/`-Dgradle.user.home` 则跳过）；相对路径基于 workspace 根，支持 `~` 展开
+
+### 文件检测（`.java-version` 与 wrapper）
+
+- `.java-version`：查找边界、格式与失败语义与 `barista mvn` 一致（见 mvn 章"文件检测"小节）
+- wrapper：从 cwd 逐级上爬定位 `gradle/wrapper/gradle-wrapper.properties`，边界为最近的 `.git` 检出根（无 `MAVEN_BASEDIR` 对应物）；从 `distributionUrl` 提取 `gradle-<version>-bin|all.zip` 的版本，经注册表逐级放宽解析；未注册响亮报 `GRADLE_NOT_FOUND`（hint 指向 `barista gradle install <version>`）
+- 退出开关：workspace properties.json 键 `detect.files=false` 关闭上述两类文件检测（与 mvn / java 共用）
+- `--dry-run` 输出中来源为文件的层级带 `file` 字段（text 与 JSON 均体现）
+
+### 要点
+
+- 只有 script 启动：Unix 直接 `bin/gradle`，Windows 经 `cmd /c bin/gradle.bat`（无 mvn 的 `--launch` 对应物）；解析到 JDK 时子进程 JAVA_HOME 被替换为该 JDK；Gradle 子进程非零退出时 barista exit 1
+- add / discover / install 的自动命名为 `gradle-<version>`（完整版本号含 qualifier，如 `gradle-9.0.0-rc-1`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
+- 固有局限：预发行版发行包的 jar 用裸基础版本命名（probe 不起子进程，读不出 qualifier），add / discover 对预发行版 home 只能注册基础版本（如 `9.0.0`）；install 不受此限，注册完整版本号（如 `9.0.0-rc-1`）
+- install：先经 available 列表解析版本，无完全匹配按数字段前缀逐级放宽取最高者并响亮告知替换（JSON detail 带 `requestedVersion`）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
+- available：数据源 `services.gradle.org/versions/all`，过滤 snapshot / nightly / releaseNightly / broken；默认只列两个最新 major 线各 minor 的最新 final 版本（预发布只随 `--all` 出现）；tags 标记 latest / installed / rc / milestone；联网失败报 `GRADLE_AVAILABLE_FAILED`
+- which 版本解析逐级放宽：`8.10.1` → `8.10` → `8`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
+- 生效优先级：workspace 配置 `gradle.default` / `jdk` 覆盖 user 注册表字段
+- set-jdk：只写 user 级 gradle.json，写入的是用户给的原始 spec（如 `17`），而非解析后的注册名；workspace 级覆盖用 `barista jdk use`
+- remove/uninstall 契约与 maven 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通；两者若为 user 级 default 均一并清除该 default
+- `--dry-run` 的 `--json` 输出 detail 含 gradle / jdk / args / command 及可选的 workspace / repo / initScripts / gradleUserHome 解析明细
+
+```bash
+barista gradle available
+barista gradle install 8.10.2
+barista gradle set-default gradle-8.10.2
+barista gradle -- build test
+barista gradle --jdk 17 --dry-run -- -q assemble
+```
+
 ## doctor — 环境体检
 
 诊断 user 级环境，在 workspace 内时自动加查 workspace 级（不在 workspace 不算错误）。只诊断不修复，每个 failed 检查带修复 hint。
@@ -381,8 +454,8 @@ barista doctor [--deep]
 
 ### 检查项
 
-- user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default`，与 mvn 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 存在性（不存在报 skipped，可选文件）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）；两者文件不存在报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn 执行器的 basedir 查找语义不同）
+- user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
 
 ### 要点
 
@@ -392,7 +465,7 @@ barista doctor [--deep]
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes]
@@ -419,14 +492,14 @@ barista upgrade [--check] [--yes]
 
 | 命令                          | 行为                                         |
 | ----------------------------- | -------------------------------------------- |
-| `list`                        | 列出可用 schema（repos / config / jdk / maven / properties / manifest） |
+| `list`                        | 列出可用 schema（repos / config / jdk / maven / gradle / properties / manifest） |
 | `show <name>`                 | 输出 schema 原文 JSON                        |
 | `validate <name> [file]`      | 校验配置文件                                 |
 
 ### validate 默认文件
 
 - 显式给 `file` 时校验该文件（此时不可再用 `--scope`）
-- `jdk` / `maven`：默认校验对应 user 级注册表（`~/.barista/jdk.json` / `maven.json`）
+- `jdk` / `maven` / `gradle`：默认校验对应 user 级注册表（`~/.barista/jdk.json` / `maven.json` / `gradle.json`）
 - `config`：默认同时校验 user 与 workspace 两级；`--scope user|workspace` 限定单级
 - `properties`：默认校验当前工作区 `.barista/properties.json`
 - 其他（如 `repos`）：默认校验当前工作区 `.barista/<name>.json`

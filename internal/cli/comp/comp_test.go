@@ -59,6 +59,37 @@ func TestMavenSpecs(t *testing.T) {
 	}
 }
 
+func TestGradleSpecs(t *testing.T) {
+	home := setHome(t)
+	writeFile(t, filepath.Join(home, ".barista", "gradle.json"),
+		`{"installations":[{"name":"gradle-8.10.2","version":"8.10.2","path":"/g/8.10"}],"default":"gradle-8.10.2"}`)
+	joined := strings.Join(GradleSpecs(), "\n")
+	if !strings.Contains(joined, "gradle-8.10.2\t8.10.2") || !strings.Contains(joined, "8.10.2\tgradle-8.10.2") {
+		t.Errorf("unexpected specs: %v", joined)
+	}
+}
+
+func TestGradleNames(t *testing.T) {
+	home := setHome(t)
+	writeFile(t, filepath.Join(home, ".barista", "gradle.json"),
+		`{"installations":[{"name":"gradle-8.10.2","version":"8.10.2","path":"/g/8.10"}],"default":"gradle-8.10.2"}`)
+	names := GradleNames()
+	if len(names) != 1 || names[0] != "gradle-8.10.2\t8.10.2" {
+		t.Errorf("unexpected names: %v", names)
+	}
+}
+
+func TestGradleSpecsBrokenRegistry(t *testing.T) {
+	home := setHome(t)
+	writeFile(t, filepath.Join(home, ".barista", "gradle.json"), `{ broken`)
+	if got := GradleSpecs(); got != nil {
+		t.Errorf("broken registry must yield no candidates, got %v", got)
+	}
+	if got := GradleNames(); got != nil {
+		t.Errorf("broken registry must yield no candidates, got %v", got)
+	}
+}
+
 func TestRepoNamesAndLabels(t *testing.T) {
 	setHome(t)
 	ws := t.TempDir()
@@ -94,8 +125,8 @@ func TestRepoNamesOutsideWorkspace(t *testing.T) {
 
 func TestSchemaNames(t *testing.T) {
 	names := SchemaNames()
-	if len(names) != 6 {
-		t.Fatalf("want 6 schema candidates, got %v", names)
+	if len(names) != 7 {
+		t.Fatalf("want 7 schema candidates, got %v", names)
 	}
 	if !strings.Contains(strings.Join(names, "\n"), "manifest\t") {
 		t.Errorf("manifest missing in %v", names)

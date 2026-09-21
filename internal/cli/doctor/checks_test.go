@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/output"
@@ -44,6 +45,28 @@ func makeMavenHome(t *testing.T, root, name, version string) string {
 	}
 	if err := os.WriteFile(filepath.Join(dir, "lib", "maven-core-"+version+".jar"), []byte(""), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	return dir
+}
+
+func makeGradleHome(t *testing.T, root, name, version string) string {
+	t.Helper()
+	dir := filepath.Join(root, name)
+	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, script := range []string{"gradle", "gradle.bat"} {
+		if err := os.WriteFile(filepath.Join(dir, "bin", script), []byte(""), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, jar := range []string{"gradle-core-", "gradle-core-api-", "gradle-launcher-"} {
+		if err := os.WriteFile(filepath.Join(dir, "lib", jar+version+".jar"), []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return dir
 }
@@ -114,6 +137,48 @@ func TestCheckMavenDefaultAndJdk(t *testing.T) {
 	jdkReg.JDKs = []jdk.Entry{{Name: "temurin17", Major: 17, Version: "17.0.12", Path: "/j/17"}}
 	if r := checkMavenJdk(reg, jdkReg); r.Status != output.StatusOK {
 		t.Errorf("resolvable maven jdk want ok, got %v", r.Error)
+	}
+}
+
+func TestCheckGradleEntry(t *testing.T) {
+	root := t.TempDir()
+	home := makeGradleHome(t, root, "g-8.10", "8.10.2")
+	e := gradle.Entry{Name: "gradle-8.10.2", Version: "8.10.2", Path: home}
+	if r := checkGradleEntry(e); r.Status != output.StatusOK {
+		t.Errorf("want ok, got %v", r.Error)
+	}
+	pre := makeGradleHome(t, root, "g-9.0", "9.0.0")
+	e = gradle.Entry{Name: "gradle-9.0.0-rc-1", Version: "9.0.0-rc-1", Path: pre}
+	if r := checkGradleEntry(e); r.Status != output.StatusOK {
+		t.Errorf("prerelease home probes its base version, want ok, got %v", r.Error)
+	}
+	e = gradle.Entry{Name: "gradle-8.10.2", Version: "8.11", Path: home}
+	if r := checkGradleEntry(e); r.Status != output.StatusFailed {
+		t.Errorf("version mismatch want failed, got %s", r.Status)
+	}
+	e = gradle.Entry{Name: "gradle-8.10.2", Version: "8.10.2", Path: filepath.Join(root, "gone")}
+	if r := checkGradleEntry(e); r.Status != output.StatusFailed {
+		t.Errorf("missing home want failed, got %s", r.Status)
+	}
+}
+
+func TestCheckGradleDefaultAndJdk(t *testing.T) {
+	reg := &gradle.Registry{}
+	if r := checkGradleDefault(reg); r.Status != output.StatusSkipped {
+		t.Errorf("unset default want skipped, got %s", r.Status)
+	}
+	reg.Default = "ghost"
+	if r := checkGradleDefault(reg); r.Status != output.StatusFailed {
+		t.Errorf("dangling default want failed, got %s", r.Status)
+	}
+	reg.Jdk = "17"
+	jdkReg := &jdk.Registry{}
+	if r := checkGradleJdk(reg, jdkReg); r.Status != output.StatusFailed {
+		t.Errorf("unresolvable gradle jdk want failed, got %s", r.Status)
+	}
+	jdkReg.JDKs = []jdk.Entry{{Name: "temurin17", Major: 17, Version: "17.0.12", Path: "/j/17"}}
+	if r := checkGradleJdk(reg, jdkReg); r.Status != output.StatusOK {
+		t.Errorf("resolvable gradle jdk want ok, got %v", r.Error)
 	}
 }
 
@@ -204,7 +269,7 @@ func TestCheckInstallDir(t *testing.T) {
 
 func TestCheckSettingsFile(t *testing.T) {
 	root := t.TempDir()
-	if r := checkSettingsFile(root, "settings.xml", "settingsFile", "-s"); r.Status != output.StatusSkipped {
+	if r := checkWorkspaceFile(root, "maven", "settings.xml", "settingsFile", "-s"); r.Status != output.StatusSkipped {
 		t.Errorf("absent settings.xml want skipped, got %s", r.Status)
 	}
 	dir := filepath.Join(root, ".barista", "maven")
@@ -214,9 +279,30 @@ func TestCheckSettingsFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "settings.xml"), []byte("<settings/>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r := checkSettingsFile(root, "settings.xml", "settingsFile", "-s")
+	r := checkWorkspaceFile(root, "maven", "settings.xml", "settingsFile", "-s")
 	if r.Status != output.StatusOK || r.Detail["injected"] != "-s" {
 		t.Errorf("present settings.xml want ok with injection note, got %v", r)
+	}
+}
+
+func TestCheckGradleInitFile(t *testing.T) {
+	root := t.TempDir()
+	if r := checkWorkspaceFile(root, "gradle", "init.gradle", "gradleInitFile", "-I"); r.Status != output.StatusSkipped {
+		t.Errorf("absent init.gradle want skipped, got %s", r.Status)
+	}
+	dir := filepath.Join(root, ".barista", "gradle")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "init.gradle.kts"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r := checkWorkspaceFile(root, "gradle", "init.gradle", "gradleInitFile", "-I"); r.Status != output.StatusSkipped {
+		t.Errorf("init.gradle.kts alone must not satisfy init.gradle, got %s", r.Status)
+	}
+	r := checkWorkspaceFile(root, "gradle", "init.gradle.kts", "gradleInitKtsFile", "-I")
+	if r.Status != output.StatusOK || r.Detail["injected"] != "-I" {
+		t.Errorf("present init.gradle.kts want ok with injection note, got %v", r)
 	}
 }
 
@@ -294,6 +380,47 @@ func TestCheckMavenWrapperFile(t *testing.T) {
 
 	write("distributionUrl=https://example.com/maven.zip\n")
 	r = checkMavenWrapperFile(ws, repo, mavenReg)
+	if r.Status != output.StatusFailed || r.Error.Hint == "" {
+		t.Errorf("unparseable file want failed with hint, got %v", r)
+	}
+}
+
+func TestCheckGradleWrapperFile(t *testing.T) {
+	root := t.TempDir()
+	ws := &workspace.Workspace{Root: root, Repos: &workspace.ReposFile{}}
+	repo := workspace.Repo{Name: "app", Path: "repos/app"}
+	gradleReg := &gradle.Registry{Installations: []gradle.Entry{{Name: "gradle-8.10.2", Version: "8.10.2", Path: "/g/8.10"}}}
+	dir := filepath.Join(root, "repos", "app", "gradle", "wrapper")
+
+	if r := checkGradleWrapperFile(ws, repo, gradleReg); r.Status != output.StatusSkipped {
+		t.Errorf("absent file want skipped, got %s", r.Status)
+	}
+
+	write := func(content string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "gradle-wrapper.properties"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write("distributionUrl=https://services.gradle.org/distributions/gradle-8.10.1-bin.zip\n")
+	if r := checkGradleWrapperFile(ws, repo, gradleReg); r.Status != output.StatusOK {
+		t.Errorf("prefix-resolvable version want ok, got %v", r.Error)
+	}
+
+	write("distributionUrl=https://services.gradle.org/distributions/gradle-9.0.0-bin.zip\n")
+	r := checkGradleWrapperFile(ws, repo, gradleReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeGradleNotFound {
+		t.Errorf("unregistered version want failed GRADLE_NOT_FOUND, got %v", r)
+	}
+	if r.Error.Hint != "run: barista gradle install 9.0.0" {
+		t.Errorf("hint must offer install, got %q", r.Error.Hint)
+	}
+
+	write("distributionUrl=https://example.com/gradle.zip\n")
+	r = checkGradleWrapperFile(ws, repo, gradleReg)
 	if r.Status != output.StatusFailed || r.Error.Hint == "" {
 		t.Errorf("unparseable file want failed with hint, got %v", r)
 	}

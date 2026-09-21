@@ -10,6 +10,7 @@ import (
 
 	"barista/internal/deps"
 	"barista/internal/gitrun"
+	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/output"
@@ -184,6 +185,47 @@ func checkMavenJdk(reg *maven.Registry, jdkReg *jdk.Registry) output.Result {
 	return ok(name, "user", check, map[string]any{"jdk": reg.Jdk})
 }
 
+func checkGradleEntry(e gradle.Entry) output.Result {
+	const check = "gradleInstall"
+	info, perr := gradle.Probe(e.Path)
+	if perr != nil {
+		perr.Hint = "run: barista gradle remove " + e.Name + "; or re-add with: barista gradle add <path> --name " + e.Name
+		return errResult(e.Name, "user", check, perr)
+	}
+	if info.Version != gradle.ProbeVersion(e.Version) {
+		return failed(e.Name, "user", check, output.CodeGradleProbeFailed,
+			fmt.Sprintf("registered %s but probe reports %s", e.Version, info.Version),
+			"re-register with: barista gradle remove "+e.Name+" && barista gradle add "+filepath.ToSlash(e.Path))
+	}
+	return ok(e.Name, "user", check, map[string]any{"version": info.Version, "path": filepath.ToSlash(e.Path)})
+}
+
+func checkGradleDefault(reg *gradle.Registry) output.Result {
+	const name, check = "gradle.json default", "gradleDefault"
+	if reg.Default == "" {
+		return skipped(name, "user", check, "no default configured")
+	}
+	if reg.Find(reg.Default) == nil {
+		return failed(name, "user", check, output.CodeGradleNotFound,
+			fmt.Sprintf("default gradle %q is not registered", reg.Default),
+			"fix with: barista gradle set-default <name>")
+	}
+	return ok(name, "user", check, map[string]any{"default": reg.Default})
+}
+
+func checkGradleJdk(reg *gradle.Registry, jdkReg *jdk.Registry) output.Result {
+	const name, check = "gradle.json jdk", "gradleJdk"
+	if reg.Jdk == "" {
+		return skipped(name, "user", check, "no jdk configured (ambient fallback)")
+	}
+	if _, _, e := jdkReg.Resolve(reg.Jdk); e != nil {
+		return failed(name, "user", check, output.CodeJDKNotFound,
+			fmt.Sprintf("gradle jdk %q is not registered", reg.Jdk),
+			"fix with: barista gradle set-jdk <major|name>")
+	}
+	return ok(name, "user", check, map[string]any{"jdk": reg.Jdk})
+}
+
 func checkJdkSpec(scope, subject, spec, howSet string, jdkReg *jdk.Registry) output.Result {
 	const check = "jdkSpec"
 	if _, _, e := jdkReg.Resolve(spec); e != nil {
@@ -202,6 +244,16 @@ func checkMavenDefaultSpec(scope, subject, spec, howSet string, mavenReg *maven.
 			"run: barista maven list; fix the property or register the installation")
 	}
 	return ok(subject, scope, check, map[string]any{"maven": spec, "via": howSet})
+}
+
+func checkGradleDefaultSpec(scope, subject, spec, howSet string, gradleReg *gradle.Registry) output.Result {
+	const check = "gradleDefaultSpec"
+	if gradleReg.Find(spec) == nil {
+		return failed(subject, scope, check, output.CodeGradleNotFound,
+			fmt.Sprintf("gradle %q (from %s) is not registered", spec, howSet),
+			"run: barista gradle list; fix the property or register the installation")
+	}
+	return ok(subject, scope, check, map[string]any{"gradle": spec, "via": howSet})
 }
 
 func checkRepoCheckout(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo, deep bool) output.Result {
@@ -266,8 +318,8 @@ func checkRepoDeps(ws *workspace.Workspace) output.Result {
 		"fix the deps entries in .barista/repos.json")
 }
 
-func checkSettingsFile(wsRoot, file, check, injected string) output.Result {
-	p := filepath.Join(wsRoot, ".barista", "maven", file)
+func checkWorkspaceFile(wsRoot, domain, file, check, injected string) output.Result {
+	p := filepath.Join(wsRoot, ".barista", domain, file)
 	if _, err := os.Stat(p); err != nil {
 		return skipped(file, "workspace", check, "not present (optional)")
 	}
@@ -318,5 +370,28 @@ func checkMavenWrapperFile(ws *workspace.Workspace, repo workspace.Repo, mavenRe
 	}
 	return ok(repo.Name, "workspace", check, map[string]any{
 		"file": filepath.ToSlash(p), "maven": version,
+	})
+}
+
+func checkGradleWrapperFile(ws *workspace.Workspace, repo workspace.Repo, gradleReg *gradle.Registry) output.Result {
+	const check = "gradleWrapperFile"
+	p := filepath.Join(ws.AbsPath(repo), "gradle", "wrapper", "gradle-wrapper.properties")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return skipped(repo.Name, "workspace", check, "no gradle-wrapper.properties")
+	}
+	version, parsed := gradle.ExtractWrapperVersion(string(data))
+	if !parsed {
+		return failed(repo.Name, "workspace", check, output.CodeConfigError,
+			fmt.Sprintf("%s has no recognizable distributionUrl", filepath.ToSlash(p)),
+			"fix the distributionUrl in gradle-wrapper.properties")
+	}
+	if _, _, e := gradleReg.Resolve(version); e != nil {
+		return failed(repo.Name, "workspace", check, output.CodeGradleNotFound,
+			fmt.Sprintf("gradle %s (from %s) is not registered", version, filepath.ToSlash(p)),
+			"run: barista gradle install "+version)
+	}
+	return ok(repo.Name, "workspace", check, map[string]any{
+		"file": filepath.ToSlash(p), "gradle": version,
 	})
 }

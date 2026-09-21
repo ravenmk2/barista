@@ -16,7 +16,7 @@
 ## 工作区发现与 home 守卫
 
 - 命令的 workspace 发现是机会主义的：FindRoot 找不到不算错误，仅意味着无 workspace 级覆盖
-- **home 目录守卫**：向上找到的 `.barista` 若就是 user 级 `~/.barista`（root == 用户主目录），不视为 workspace——防止把 workspace 偏好写进 user 级文件。守卫实现收敛在 `workspace.FindWorkspaceRoot`，maven 组与 mvn 命令共用
+- **home 目录守卫**：向上找到的 `.barista` 若就是 user 级 `~/.barista`（root == 用户主目录），不视为 workspace——防止把 workspace 偏好写进 user 级文件。守卫实现收敛在 `workspace.FindWorkspaceRoot`，maven / gradle 组与各执行器共用
 
 ## init 命令（cli/init）
 
@@ -57,7 +57,9 @@
 | `maven.default` | 由 `barista maven set-default --scope workspace` 写入 |
 | `maven.repo.local` | `barista mvn` 显式设置时注入 `-Dmaven.repo.local`（见 [executors.md](executors.md)） |
 | `maven.launch` | mvn 启动模式覆盖（java \| script，见 [executors.md](executors.md)） |
-| `detect.files` | `false` 关闭 mvn / java 的 `.java-version` 与 wrapper 文件检测；手改写入 |
+| `gradle.default` | 由 `barista gradle set-default --scope workspace` 写入 |
+| `gradle.user.home` | `barista gradle` 注入 `--gradle-user-home`（见 [executors.md](executors.md)） |
+| `detect.files` | `false` 关闭 mvn / java / gradle 的 `.java-version` 与 wrapper 文件检测；手改写入 |
 | `git.fetch.prune` / `git.pull.rebase` | `barista git fetch` / `git pull` 未显式传 flag 时读取；手改写入 |
 
 未知键宽容忽略；CLI 写入走 `workspace.SetProperty`（通用 map 读写 + 临时文件 rename 原子写，未知键全保留）。
@@ -71,6 +73,6 @@
 
 ## installDir
 
-- 归属各自 registry 顶层字段（jdk.json / maven.json），由 `barista jdk set-install-dir` / `barista maven set-install-dir` 写入（须为绝对路径，`~` 允许；`--reset` 清空字段恢复内置默认 `~/.barista/toolchains/jdk|maven`）
+- 归属各自 registry 顶层字段（jdk.json / maven.json / gradle.json），由 `barista jdk set-install-dir` / `barista maven set-install-dir` / `barista gradle set-install-dir` 写入（须为绝对路径，`~` 允许；`--reset` 清空字段恢复内置默认 `~/.barista/toolchains/jdk|maven|gradle`）
 - 不参与 workspace 合并
 - 旧 config.json 残留的 `installDir` / `mavenInstallDir` 已废弃，按未知字段宽容忽略

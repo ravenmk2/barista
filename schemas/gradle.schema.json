@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/gradle.schema.json",
+  "title": "barista gradle.json",
+  "description": "Gradle registry (user level ~/.barista/gradle.json); missing file means an empty registry",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "installations": {
+      "type": "array",
+      "description": "Registered gradle installations in declaration order",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "version", "path"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "description": "Unique logical name (auto-named gradle-<version> by add/discover/install, e.g. gradle-8.10.2)"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Full version string (e.g. 8.10.2, 9.0.0-rc-1)"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute gradle home (the directory containing bin/gradle)"
+          },
+          "managed": {
+            "type": "boolean",
+            "default": false,
+            "description": "True when installed by barista gradle install (under installDir); eligible for barista gradle uninstall"
+          }
+        }
+      }
+    },
+    "default": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the default gradle installation (set by barista gradle set-default); overridden by workspace properties.json \"gradle.default\""
+    },
+    "jdk": {
+      "type": "string",
+      "minLength": 1,
+      "description": "JDK spec used to run gradle (major like \"17\" or a jdk registry name; resolved against ~/.barista/jdk.json); overridden by workspace properties.json \"jdk\""
+    },
+    "installDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Install root for barista gradle install (set by barista gradle set-install-dir); must be an absolute path (~ allowed); default is the builtin ~/.barista/toolchains/gradle"
+    }
+  }
+}

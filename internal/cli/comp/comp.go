@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/workspace"
@@ -86,6 +87,42 @@ func MavenNames() []string {
 
 func MavenSpecs() []string {
 	reg := mavenRegistry()
+	if reg == nil {
+		return nil
+	}
+	out := make([]string, 0, 2*len(reg.Installations))
+	for _, e := range reg.Installations {
+		out = append(out, e.Name+"\t"+e.Version, e.Version+"\t"+e.Name)
+	}
+	return out
+}
+
+func gradleRegistry() *gradle.Registry {
+	p, err := gradle.RegistryPath()
+	if err != nil {
+		return nil
+	}
+	reg, e := gradle.Load(p)
+	if e != nil {
+		return nil
+	}
+	return reg
+}
+
+func GradleNames() []string {
+	reg := gradleRegistry()
+	if reg == nil {
+		return nil
+	}
+	out := make([]string, 0, len(reg.Installations))
+	for _, e := range reg.Installations {
+		out = append(out, e.Name+"\t"+e.Version)
+	}
+	return out
+}
+
+func GradleSpecs() []string {
+	reg := gradleRegistry()
 	if reg == nil {
 		return nil
 	}

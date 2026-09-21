@@ -6,7 +6,7 @@
 
 - registry 读写（`~/.barista/maven.json`，原子写）
 - probe：纯文件系统探测——校验 `bin/mvn` / `bin/mvn.cmd` 存在、从 `lib/maven-core-*.jar` 文件名解析版本；不起子进程
-- 版本比较：数字段 + qualifier token 比较（ComparableVersion 简化版）
+- 版本比较与模糊解析基于 toolversion 公共包（数字段 + qualifier token，ComparableVersion 简化版；与 gradle 共用）
 - 模糊解析
 - wrapper distributionUrl 版本提取（wrapper.go：ExtractWrapperVersion）
 - discover 候选收集：MAVEN_HOME / M2_HOME / sdkman / brew / scoop / 平台安装位置 / PATH 反推

@@ -6,6 +6,7 @@ import (
 	depscli "barista/internal/cli/deps"
 	doctorcli "barista/internal/cli/doctor"
 	gitcli "barista/internal/cli/git"
+	gradlecli "barista/internal/cli/gradle"
 	initcli "barista/internal/cli/init"
 	javacli "barista/internal/cli/java"
 	jdkcli "barista/internal/cli/jdk"
@@ -30,6 +31,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.AddCommand(mavencli.NewCmd(&ExitCode))
 	root.AddCommand(mvncli.NewCmd(&ExitCode))
 	root.AddCommand(javacli.NewCmd(&ExitCode))
+	root.AddCommand(gradlecli.NewCmd(&ExitCode))
 	root.AddCommand(repocli.NewCmd(&ExitCode))
 	root.AddCommand(depscli.NewCmd(&ExitCode))
 	root.AddCommand(doctorcli.NewCmd(&ExitCode))

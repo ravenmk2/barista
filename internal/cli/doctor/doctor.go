@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/output"
@@ -99,6 +100,27 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 		add(checkInstallDir("maven.json installDir", "mavenInstallDir", reg.InstallDir, "barista maven set-install-dir --reset"))
 	}
 
+	var gradleReg *gradle.Registry
+	if p, err := gradle.RegistryPath(); err != nil {
+		add(failed("gradle.json", "user", "gradleRegistryParse", output.CodeConfigError, err.Error(), "check that the user home directory is resolvable"))
+	} else if reg, e := gradle.Load(p); e != nil {
+		add(errResult("gradle.json", "user", "gradleRegistryParse", withHint(e, "fix or delete "+filepath.ToSlash(p))))
+	} else {
+		gradleReg = reg
+		add(ok("gradle.json", "user", "gradleRegistryParse", map[string]any{"registered": len(reg.Installations)}))
+		for _, entry := range reg.Installations {
+			entry := entry
+			task(func(context.Context) output.Result { return checkGradleEntry(entry) })
+		}
+		add(checkGradleDefault(reg))
+		if jdkReg != nil {
+			add(checkGradleJdk(reg, jdkReg))
+		} else {
+			add(skipped("gradle.json", "user", "gradleJdk", "jdk.json unavailable"))
+		}
+		add(checkInstallDir("gradle.json installDir", "gradleInstallDir", reg.InstallDir, "barista gradle set-install-dir --reset"))
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		add(failed("workspace", "workspace", "workspaceDetect", output.CodeWorkspaceNotFound, err.Error(), "the current directory may have been removed; cd into an existing directory and retry"))
@@ -147,6 +169,14 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 			add(checkMavenWrapperFile(ws, repo, mavenReg))
 		}
 	}
+	if gradleReg != nil {
+		if v, has := ws.Props.String("gradle.default"); has && v != "" {
+			add(checkGradleDefaultSpec("workspace", "properties.json", v, "workspace properties", gradleReg))
+		}
+		for _, repo := range ws.Repos.Repos {
+			add(checkGradleWrapperFile(ws, repo, gradleReg))
+		}
+	}
 	if v, has := ws.Props.String("maven.launch"); has && v != "" {
 		add(checkMavenLaunch("workspace", "properties.json", v, "workspace properties"))
 	}
@@ -156,8 +186,10 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 		}
 	}
 	add(checkRepoDeps(ws))
-	add(checkSettingsFile(ws.Root, "settings.xml", "settingsFile", "-s"))
-	add(checkSettingsFile(ws.Root, "settings-security.xml", "settingsSecurityFile", "-Dsettings.security"))
+	add(checkWorkspaceFile(ws.Root, "maven", "settings.xml", "settingsFile", "-s"))
+	add(checkWorkspaceFile(ws.Root, "maven", "settings-security.xml", "settingsSecurityFile", "-Dsettings.security"))
+	add(checkWorkspaceFile(ws.Root, "gradle", "init.gradle", "gradleInitFile", "-I"))
+	add(checkWorkspaceFile(ws.Root, "gradle", "init.gradle.kts", "gradleInitKtsFile", "-I"))
 	return results, tasks
 }
 

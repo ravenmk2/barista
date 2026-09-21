@@ -9,12 +9,22 @@
     "jdk": {
       "type": "string",
       "minLength": 1,
-      "description": "JDK spec for this workspace (major like \"17\" or a jdk registry name; set by barista jdk use; overrides ~/.barista/maven.json jdk)"
+      "description": "JDK spec for this workspace (major like \"17\" or a jdk registry name; set by barista jdk use; overrides ~/.barista/maven.json and ~/.barista/gradle.json jdk)"
     },
     "maven.default": {
       "type": "string",
       "minLength": 1,
       "description": "Workspace override of the default maven installation name (set by barista maven set-default --scope workspace; overrides ~/.barista/maven.json default)"
+    },
+    "gradle.default": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace override of the default gradle installation name (set by barista gradle set-default --scope workspace; overrides ~/.barista/gradle.json default)"
+    },
+    "gradle.user.home": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace-level gradle user home; barista gradle injects --gradle-user-home (relative paths anchor at the workspace root, ~ allowed)"
     },
     "maven.repo.local": {
       "type": "string",

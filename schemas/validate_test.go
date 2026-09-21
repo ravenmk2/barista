@@ -82,7 +82,7 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "properties scalar values valid",
 			schema:    "properties",
-			doc:       `{"jdk":"17","maven.default":"maven-3.9","git.fetch.prune":true,"git.pull.rebase":false,"threads":4,"future.key":"x"}`,
+			doc:       `{"jdk":"17","maven.default":"maven-3.9","gradle.default":"gradle-8.10","gradle.user.home":".barista/gradle-home","git.fetch.prune":true,"git.pull.rebase":false,"threads":4,"future.key":"x"}`,
 			wantValid: true,
 		},
 		{
@@ -113,6 +113,30 @@ func TestValidate(t *testing.T) {
 			name:      "maven bad name pattern",
 			schema:    "maven",
 			doc:       `{"installations":[{"name":"Maven-3.9","version":"3.9.11","path":"/opt/maven"}]}`,
+			wantPaths: []string{"installations[0].name"},
+		},
+		{
+			name:      "gradle minimal valid",
+			schema:    "gradle",
+			doc:       `{"installations":[{"name":"gradle-8.10","version":"8.10.2","path":"/opt/gradle"}],"default":"gradle-8.10","jdk":"17"}`,
+			wantValid: true,
+		},
+		{
+			name:      "gradle empty object valid",
+			schema:    "gradle",
+			doc:       `{}`,
+			wantValid: true,
+		},
+		{
+			name:      "gradle installation missing version",
+			schema:    "gradle",
+			doc:       `{"installations":[{"name":"gradle-8.10","path":"/opt/gradle"}]}`,
+			wantPaths: []string{"installations[0]"},
+		},
+		{
+			name:      "gradle bad name pattern",
+			schema:    "gradle",
+			doc:       `{"installations":[{"name":"Gradle-8.10","version":"8.10.2","path":"/opt/gradle"}]}`,
 			wantPaths: []string{"installations[0].name"},
 		},
 		{

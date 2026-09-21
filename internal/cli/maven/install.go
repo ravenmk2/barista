@@ -72,6 +72,7 @@ func installCmd() *cobra.Command {
 			if name == "" {
 				name = autoName(reg, version)
 			} else {
+				res.Name = name
 				if e := customNameError(name); e != nil {
 					failRes(e)
 					return nil

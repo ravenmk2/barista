@@ -18,6 +18,9 @@ var jdkSchema []byte
 //go:embed maven.schema.json
 var mavenSchema []byte
 
+//go:embed gradle.schema.json
+var gradleSchema []byte
+
 //go:embed properties.schema.json
 var propertiesSchema []byte
 
@@ -50,6 +53,11 @@ var entries = map[string]Entry{
 		Name:        "maven",
 		Description: "Maven registry (user level ~/.barista/maven.json)",
 		Raw:         mavenSchema,
+	},
+	"gradle": {
+		Name:        "gradle",
+		Description: "Gradle registry (user level ~/.barista/gradle.json)",
+		Raw:         gradleSchema,
 	},
 	"properties": {
 		Name:        "properties",
