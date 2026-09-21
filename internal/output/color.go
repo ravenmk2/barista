@@ -6,8 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/term"
 )
 
 type styler interface {
@@ -23,10 +25,22 @@ type styler interface {
 }
 
 // Palette styles human-facing text output. Colors are authored in 24-bit hex
-// and degrade to the palette's color profile (truecolor -> 256 -> 16).
+// and degrade to the palette's color profile (truecolor -> 256 -> 16). Dark
+// and light themes adapt to the terminal background; detection mirrors fang
+// so command output and --help always render the same hues.
 type Palette struct {
 	enabled bool
 	profile colorprofile.Profile
+	colors  paletteColors
+}
+
+type paletteColors struct {
+	green   color.Color
+	red     color.Color
+	yellow  color.Color
+	cyan    color.Color
+	blue    color.Color
+	magenta color.Color
 }
 
 // NewPalette builds a Palette. profileName is "", "auto", "truecolor", "256",
@@ -40,7 +54,25 @@ func NewPalette(enabled bool, profileName ...string) Palette {
 	if len(profileName) > 0 && profileName[0] != "" {
 		name = profileName[0]
 	}
-	return Palette{enabled: true, profile: resolveProfile(name)}
+	return newPalette(true, detectDark(), name)
+}
+
+func newPalette(enabled bool, dark bool, profileName string) Palette {
+	if !enabled {
+		return Palette{}
+	}
+	colors := lightColors
+	if dark {
+		colors = darkColors
+	}
+	return Palette{enabled: true, profile: resolveProfile(profileName), colors: colors}
+}
+
+// detectDark uses the same heuristic as fang's help theme: query the
+// terminal background when stdout is a real terminal, assume light otherwise
+// (no query possible, e.g. Git Bash pty or color: always into a pipe).
+func detectDark() bool {
+	return term.IsTerminal(os.Stdout.Fd()) && lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 }
 
 // Enabled reports whether styling is active.
@@ -64,16 +96,32 @@ func resolveProfile(name string) colorprofile.Profile {
 	return p
 }
 
-// Semantic colors. Picked so that the 16-color fallback lands on six distinct
-// basic colors (10/9/11/14/12/13), keeping roles distinguishable everywhere.
+// Semantic colors in the charmtone family, the same palette fang's
+// DefaultColorScheme draws --help from. Both themes land the six roles on
+// distinct 16-color fallbacks (dark: bright 10/9/11/14/12/13; light: darker
+// greens/cyans read better on light backgrounds).
 var (
-	colGreen   = color.RGBA{R: 0x2E, G: 0xCC, B: 0x71, A: 0xFF}
-	colRed     = color.RGBA{R: 0xFF, G: 0x55, B: 0x55, A: 0xFF}
-	colYellow  = color.RGBA{R: 0xF5, G: 0xEF, B: 0x34, A: 0xFF}
-	colCyan    = color.RGBA{R: 0x0A, G: 0xDC, B: 0xD9, A: 0xFF}
-	colBlue    = color.RGBA{R: 0x72, G: 0x72, B: 0xFF, A: 0xFF}
-	colMagenta = color.RGBA{R: 0xFF, G: 0x60, B: 0xFF, A: 0xFF}
+	darkColors = paletteColors{
+		green:   rgb(0x12C78F), // charmtone.Guac (fang Flag)
+		red:     rgb(0xFF6E63), // charmtone.Bengal
+		yellow:  rgb(0xF5EF34), // charmtone.Mustard
+		cyan:    rgb(0x0ADCD9), // charmtone.Turtle
+		blue:    rgb(0x7272FF), // charmtone.Guppy (fang Program)
+		magenta: rgb(0xFF60FF), // charmtone.Dolly
+	}
+	lightColors = paletteColors{
+		green:   rgb(0x0CB37F), // fang light Flag
+		red:     rgb(0xEB4268), // charmtone.Sriracha
+		yellow:  rgb(0x9C9C00), // amber, lands on non-bright yellow in 16 colors
+		cyan:    rgb(0x10B1AE), // charmtone.Zinc
+		blue:    rgb(0x00A4FF), // charmtone.Malibu (fang light Program)
+		magenta: rgb(0xC337E0), // charmtone.Urchin
+	}
 )
+
+func rgb(h uint32) color.RGBA {
+	return color.RGBA{R: uint8(h >> 16), G: uint8(h >> 8), B: uint8(h), A: 0xFF}
+}
 
 // fgSeq renders c as SGR foreground parameters.
 func fgSeq(c color.Color) string {
@@ -102,12 +150,12 @@ func (p Palette) paint(c color.Color, s string) string {
 	return "\x1b[" + fgSeq(cc) + "m" + s + "\x1b[0m"
 }
 
-func (p Palette) Green(s string) string   { return p.paint(colGreen, s) }
-func (p Palette) Red(s string) string     { return p.paint(colRed, s) }
-func (p Palette) Yellow(s string) string  { return p.paint(colYellow, s) }
-func (p Palette) Cyan(s string) string    { return p.paint(colCyan, s) }
-func (p Palette) Blue(s string) string    { return p.paint(colBlue, s) }
-func (p Palette) Magenta(s string) string { return p.paint(colMagenta, s) }
+func (p Palette) Green(s string) string   { return p.paint(p.colors.green, s) }
+func (p Palette) Red(s string) string     { return p.paint(p.colors.red, s) }
+func (p Palette) Yellow(s string) string  { return p.paint(p.colors.yellow, s) }
+func (p Palette) Cyan(s string) string    { return p.paint(p.colors.cyan, s) }
+func (p Palette) Blue(s string) string    { return p.paint(p.colors.blue, s) }
+func (p Palette) Magenta(s string) string { return p.paint(p.colors.magenta, s) }
 
 func (p Palette) Dim(s string) string {
 	if !p.enabled || s == "" {
@@ -120,7 +168,7 @@ func (p Palette) YellowBold(s string) string {
 	if !p.enabled || s == "" {
 		return s
 	}
-	cc := p.profile.Convert(colYellow)
+	cc := p.profile.Convert(p.colors.yellow)
 	if cc == nil {
 		return s
 	}
