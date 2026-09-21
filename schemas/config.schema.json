@@ -17,6 +17,12 @@
       "enum": ["auto", "always", "never"],
       "default": "auto",
       "description": "Color output mode; NO_COLOR env var takes precedence over everything"
+    },
+    "colorProfile": {
+      "type": "string",
+      "enum": ["auto", "truecolor", "256", "16"],
+      "default": "auto",
+      "description": "Color depth when color is enabled; auto = detect from terminal, other values force truecolor/256/16-color output"
     }
   }
 }

@@ -201,7 +201,7 @@ func palette() output.Palette {
 	if err != nil {
 		return output.NewPalette(false)
 	}
-	return output.NewPalette(output.ColorEnabled(cfg.Color))
+	return output.NewPalette(output.ColorEnabled(cfg.Color), cfg.ColorProfile)
 }
 
 func fail(cmd *cobra.Command, e *output.ErrInfo) {

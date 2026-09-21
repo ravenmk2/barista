@@ -36,8 +36,9 @@ type ReposFile struct {
 }
 
 type ConfigFile struct {
-	Parallel int    `json:"parallel"`
-	Color    string `json:"color"`
+	Parallel     int    `json:"parallel"`
+	Color        string `json:"color"`
+	ColorProfile string `json:"colorProfile"`
 }
 
 type Workspace struct {
@@ -251,6 +252,11 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 	default:
 		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: invalid color %q (want auto|always|never)", source, cf.Color)}
 	}
+	switch cf.ColorProfile {
+	case "", "auto", "truecolor", "256", "16":
+	default:
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: invalid colorProfile %q (want auto|truecolor|256|16)", source, cf.ColorProfile)}
+	}
 	if cf.Parallel < 0 {
 		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: parallel must be >= 0", source)}
 	}
@@ -286,6 +292,9 @@ func MergeConfig(user, ws ConfigFile) ConfigFile {
 	out := user
 	if ws.Color != "" {
 		out.Color = ws.Color
+	}
+	if ws.ColorProfile != "" {
+		out.ColorProfile = ws.ColorProfile
 	}
 	if ws.Parallel != 0 {
 		out.Parallel = ws.Parallel

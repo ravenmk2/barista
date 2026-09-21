@@ -32,8 +32,8 @@ func padName(s string, w int) string {
 	}
 }
 
-func NewTextRenderer(w io.Writer, command string, color bool, nameWidth int) *TextRenderer {
-	return &TextRenderer{w: w, command: command, p: NewPalette(color), nameWidth: max(nameWidth, 1)}
+func NewTextRenderer(w io.Writer, command string, p Palette, nameWidth int) *TextRenderer {
+	return &TextRenderer{w: w, command: command, p: p, nameWidth: max(nameWidth, 1)}
 }
 
 func (r *TextRenderer) OnResult(_ int, res Result) {

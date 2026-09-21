@@ -115,8 +115,9 @@ func execute(cmd *cobra.Command, action string, op repoOp) {
 		return
 	}
 	color := output.ColorEnabled(cfg.Color)
+	palette := output.NewPalette(color, cfg.ColorProfile)
 	if output.StdoutIsTerminal() {
-		panel := output.NewPanel(command, names, color)
+		panel := output.NewPanel(command, names, palette)
 		for i := range tasks {
 			name, run := tasks[i].Name, tasks[i].Run
 			tasks[i].Run = func(ctx context.Context) output.Result {
@@ -145,11 +146,11 @@ func execute(cmd *cobra.Command, action string, op repoOp) {
 			}
 		}
 		mu.Unlock()
-		output.NewTextRenderer(os.Stdout, command, color, output.NameWidth(names)).Finish(final)
+		output.NewTextRenderer(os.Stdout, command, palette, output.NameWidth(names)).Finish(final)
 		*exitCode = output.ExitCode(final)
 		return
 	}
-	tr := output.NewTextRenderer(os.Stdout, command, color, output.NameWidth(names))
+	tr := output.NewTextRenderer(os.Stdout, command, palette, output.NameWidth(names))
 	results := runner.Run(ctx, tasks, parallel, tr.OnResult)
 	tr.Finish(results)
 	*exitCode = output.ExitCode(results)

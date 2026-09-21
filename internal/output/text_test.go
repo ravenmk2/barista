@@ -43,8 +43,8 @@ func TestBranchPaletteDisabled(t *testing.T) {
 }
 
 func TestBranchPaletteEnabled(t *testing.T) {
-	p := NewPalette(true)
-	if got := p.Branch("main"); got != "\x1b[32mmain\x1b[0m" {
+	p := NewPalette(true, "truecolor")
+	if got := p.Branch("main"); got != "\x1b[38;2;46;204;113mmain\x1b[0m" {
 		t.Errorf("trunk branch should be green, got %q", got)
 	}
 	if got := p.Branch("custom/x"); got != "custom/x" {

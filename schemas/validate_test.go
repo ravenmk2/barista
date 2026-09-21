@@ -68,6 +68,18 @@ func TestValidate(t *testing.T) {
 			wantPaths: []string{"color"},
 		},
 		{
+			name:      "config colorProfile invalid enum",
+			schema:    "config",
+			doc:       `{"colorProfile":"8bit"}`,
+			wantPaths: []string{"colorProfile"},
+		},
+		{
+			name:      "config colorProfile valid",
+			schema:    "config",
+			doc:       `{"color":"always","colorProfile":"256"}`,
+			wantValid: true,
+		},
+		{
 			name:      "properties scalar values valid",
 			schema:    "properties",
 			doc:       `{"jdk":"17","maven.default":"maven-3.9","git.fetch.prune":true,"git.pull.rebase":false,"threads":4,"future.key":"x"}`,

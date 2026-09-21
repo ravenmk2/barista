@@ -13,6 +13,8 @@ barista CLI 的完整命令参考。全局设计契约（分层、输出、退�
 
 `--parallel` 未显式给出时回退到 config 的 `parallel` 字段（git 命令组读 user+workspace 合并后的 config；`jdk discover` 只读 user 级 config）。
 
+文本输出的颜色由两级 config 的 `color`（`auto|always|never`，何时着色；`NO_COLOR` 环境变量优先于一切）与 `colorProfile`（`auto|truecolor|256|16`，色深；`auto` 按终端探测自动降级，其余值强制）控制。
+
 fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--version` flag。
 
 ### 输出形态

@@ -362,5 +362,5 @@ func palette(cmd *cobra.Command) (output.Palette, bool) {
 		fail(cmd, e)
 		return output.NewPalette(false), false
 	}
-	return output.NewPalette(output.ColorEnabled(cfg.Color)), true
+	return output.NewPalette(output.ColorEnabled(cfg.Color), cfg.ColorProfile), true
 }

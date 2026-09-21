@@ -40,7 +40,8 @@ func palette(ws *workspace.Workspace) output.Palette {
 	if err != nil {
 		user = workspace.ConfigFile{}
 	}
-	return output.NewPalette(output.ColorEnabled(workspace.MergeConfig(user, ws.Cfg).Color))
+	cfg := workspace.MergeConfig(user, ws.Cfg)
+	return output.NewPalette(output.ColorEnabled(cfg.Color), cfg.ColorProfile)
 }
 
 func finish(cmd *cobra.Command, ws *workspace.Workspace, results []output.Result) {

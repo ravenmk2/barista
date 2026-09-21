@@ -33,15 +33,15 @@ func TestLoadUserConfig(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"parallel":20,"color":"never"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"parallel":20,"color":"never","colorProfile":"256"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cf, err := LoadUserConfig()
 	if err != nil {
 		t.Fatalf("LoadUserConfig: %v", err)
 	}
-	if cf.Parallel != 20 || cf.Color != "never" {
-		t.Errorf("got %+v, want {20 never}", cf)
+	if cf.Parallel != 20 || cf.Color != "never" || cf.ColorProfile != "256" {
+		t.Errorf("got %+v, want {20 never 256}", cf)
 	}
 }
 
@@ -81,6 +81,20 @@ func TestLoadUserConfigInvalidValue(t *testing.T) {
 	}
 }
 
+func TestLoadUserConfigInvalidColorProfile(t *testing.T) {
+	home := setUserHome(t)
+	dir := filepath.Join(home, ".barista")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"colorProfile":"8bit"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadUserConfig(); err == nil {
+		t.Fatal("want error for invalid colorProfile, got nil")
+	}
+}
+
 func TestMergeConfig(t *testing.T) {
 	cases := []struct {
 		name string
@@ -93,6 +107,8 @@ func TestMergeConfig(t *testing.T) {
 		{"workspace only", ConfigFile{}, ConfigFile{Parallel: 4, Color: "auto"}, ConfigFile{Parallel: 4, Color: "auto"}},
 		{"user only", ConfigFile{Parallel: 8}, ConfigFile{}, ConfigFile{Parallel: 8}},
 		{"both empty", ConfigFile{}, ConfigFile{}, ConfigFile{}},
+		{"colorProfile workspace wins", ConfigFile{ColorProfile: "256"}, ConfigFile{ColorProfile: "16"}, ConfigFile{ColorProfile: "16"}},
+		{"colorProfile user fills gap", ConfigFile{ColorProfile: "truecolor"}, ConfigFile{}, ConfigFile{ColorProfile: "truecolor"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

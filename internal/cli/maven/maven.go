@@ -81,7 +81,7 @@ func userSettings(cmd *cobra.Command) (workspace.ConfigFile, output.Palette, boo
 		fail(cmd, e)
 		return workspace.ConfigFile{}, output.NewPalette(false), false
 	}
-	return cfg, output.NewPalette(output.ColorEnabled(cfg.Color)), true
+	return cfg, output.NewPalette(output.ColorEnabled(cfg.Color), cfg.ColorProfile), true
 }
 
 func saveRegistry(cmd *cobra.Command, reg *maven.Registry, path string) bool {

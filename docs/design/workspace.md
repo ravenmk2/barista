@@ -64,7 +64,9 @@
 
 ## config.json（两级）
 
-- 顶层字段只剩 `parallel` / `color`（properties 已拆出为独立文件）
+- 顶层字段只剩 `parallel` / `color` / `colorProfile`（properties 已拆出为独立文件）
+- `color`：`auto|always|never`，何时着色（`NO_COLOR` 环境变量优先级最高）
+- `colorProfile`：`auto|truecolor|256|16`，着色时的色深；`auto` 按终端能力探测并自动降级，其余值强制（配合 `color: always` 可向管道/CI 日志输出指定色深）
 - workspace 级 `<workspace>/.barista/config.json` 与 user 级同 schema，覆盖 user 级
 
 ## installDir

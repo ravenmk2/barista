@@ -37,7 +37,7 @@ build.sh            交叉编译六平台（--install 装到 ~/.local/bin）
 - exit code：0 全成功 / 1 任一检查/操作 failed（jdk/maven 解析失败、upgrade 网络/校验/替换失败、schema 校验不通过、mvn/java 子进程非零等） / 2 用法、配置、工作区错误
 - 非 TTY 自动降级：无 TUI、无颜色（遵守 `NO_COLOR`）；`--json` 隐含这一切
 - **非 TTY 下永不阻塞等待输入**。本该询问的场景以 `CONFIRMATION_REQUIRED`（exit 2，带 hint + affected）报错；每个交互点必须有对应 flag 或 `--yes` 通路
-- 文本输出高亮语义集中在 `internal/output/color.go`（palette 样式函数 + 启用判定），新命令复用同一套样式函数，不得在命令实现里手写 ANSI 码
+- 文本输出高亮语义集中在 `internal/output/color.go`（Palette 样式函数 + 启用判定）：色板以 24-bit hex 定义，按 colorprofile 自动降级（truecolor→256→16，且 16 色下六个语义色落点互不相同），色深由 config `colorProfile` 控制；新命令复用同一套样式函数，不得在命令实现里手写 ANSI 码
 - `barista schema` 输出内嵌 JSON Schema（自描述能力）；schema 单一数据源在 `schemas/` 目录（包即数据目录，`schemas/schemas.go` 与 JSON 同目录 go:embed），`schema validate` 也以它为校验真相（santhosh-tekuri/jsonschema 编译内嵌 schema）；新增配置文件域时同步在 `schemas/` 添加 JSON 文件并 embed
 
 ## 配置分层

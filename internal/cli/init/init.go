@@ -129,7 +129,7 @@ func emit(cmd *cobra.Command, res output.Result) {
 		return
 	}
 	cfg, err := workspace.LoadUserConfig()
-	p := output.NewPalette(err == nil && output.ColorEnabled(cfg.Color))
+	p := output.NewPalette(err == nil && output.ColorEnabled(cfg.Color), cfg.ColorProfile)
 	if res.Detail["created"] == true {
 		fmt.Printf("%s %s\n", p.Green("initialized"), res.Detail["reposJson"])
 	} else {
@@ -160,7 +160,7 @@ func fail(cmd *cobra.Command, e *output.ErrInfo) {
 	p := output.NewPalette(false)
 	cfg, err := workspace.LoadUserConfig()
 	if err == nil {
-		p = output.NewPalette(output.ColorEnabled(cfg.Color))
+		p = output.NewPalette(output.ColorEnabled(cfg.Color), cfg.ColorProfile)
 	}
 	fmt.Fprintf(os.Stderr, "%s %s\n", p.Red("barista: "+e.Code+":"), e.Message)
 	if e.Hint != "" {

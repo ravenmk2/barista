@@ -196,7 +196,7 @@ func render(cmd *cobra.Command, results []output.Result) {
 	}
 	cfg, err := workspace.LoadUserConfig()
 	color := err == nil && output.ColorEnabled(cfg.Color)
-	p := output.NewPalette(color)
+	p := output.NewPalette(color, cfg.ColorProfile)
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
 	for _, scope := range []string{"user", "workspace"} {
 		first := true
