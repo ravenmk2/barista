@@ -491,12 +491,13 @@ barista upgrade [--check] [--yes] [--attempts N]
 ### 行为
 
 - 读取 `releases/latest/download/manifest.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
-- 下载对应 GOOS/GOARCH 的 asset（断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
+- 下载对应 GOOS/GOARCH 的归档 asset（windows 为 zip，其余为 tar.gz；断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
+- 从归档提取二进制条目（manifest 的 `entry` 字段指定），format 不支持或条目缺失报 `UPGRADE_EXTRACT_FAILED`
 - 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行 upgrade 时自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
 - 确认契约：TTY 交互询问（`[Y/n]` 默认 yes，回答 n 取消），非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
 - exit 0 已最新、升级成功或 TTY 下回答 n 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
 
-清单文件由 release workflow 生成（六平台 asset 的 file/sha256/size），发布前用 `barista schema validate manifest <file>` 校验（不带 file 会解析到工作区默认路径 `<workspace>/.barista/manifest.json`）。
+清单文件（schemaVersion 2）由 release workflow 生成（六平台归档 asset 的 file/format/entry/sha256/size），发布前用 `barista schema validate manifest <file>` 校验（不带 file 会解析到工作区默认路径 `<workspace>/.barista/manifest.json`）。
 
 ## schema — 内置 JSON Schema 工具
 

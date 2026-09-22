@@ -173,7 +173,12 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 	if e := upgrade.VerifySHA256(tmpPath, asset.SHA256); e != nil {
 		return e
 	}
-	return upgrade.ReplaceBinary(exe, tmpPath)
+	binPath := tmpPath + ".bin"
+	defer func() { _ = os.Remove(binPath) }()
+	if e := upgrade.ExtractEntry(tmpPath, asset.Format, asset.Entry, binPath); e != nil {
+		return e
+	}
+	return upgrade.ReplaceBinary(exe, binPath)
 }
 
 func emit(cmd *cobra.Command, res output.Result) {

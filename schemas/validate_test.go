@@ -166,19 +166,31 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "manifest minimal valid",
 			schema:    "manifest",
-			doc:       `{"schemaVersion":1,"version":"v0.3.0","assets":{"windows/amd64":{"file":"barista-windows-amd64.exe","sha256":"` + strings.Repeat("a", 64) + `","size":10}}}`,
+			doc:       `{"schemaVersion":2,"version":"v0.4.0","assets":{"windows/amd64":{"file":"barista-v0.4.0-windows-amd64.zip","format":"zip","entry":"barista.exe","sha256":"` + strings.Repeat("a", 64) + `","size":10}}}`,
 			wantValid: true,
+		},
+		{
+			name:      "manifest v1 rejected",
+			schema:    "manifest",
+			doc:       `{"schemaVersion":1,"version":"v0.3.0","assets":{"windows/amd64":{"file":"barista-windows-amd64.exe","sha256":"` + strings.Repeat("a", 64) + `","size":10}}}`,
+			wantPaths: []string{"schemaVersion"},
 		},
 		{
 			name:      "manifest missing assets",
 			schema:    "manifest",
-			doc:       `{"schemaVersion":1,"version":"v0.3.0"}`,
+			doc:       `{"schemaVersion":2,"version":"v0.4.0"}`,
 			wantPaths: []string{"$"},
+		},
+		{
+			name:      "manifest bad format",
+			schema:    "manifest",
+			doc:       `{"schemaVersion":2,"version":"v0.4.0","assets":{"linux/amd64":{"file":"barista-v0.4.0-linux-amd64.rar","format":"rar","entry":"barista","sha256":"` + strings.Repeat("a", 64) + `","size":10}}}`,
+			wantPaths: []string{"assets.linux.amd64.format"},
 		},
 		{
 			name:      "manifest bad sha256",
 			schema:    "manifest",
-			doc:       `{"schemaVersion":1,"version":"v0.3.0","assets":{"linux/amd64":{"file":"barista-linux-amd64","sha256":"xyz","size":10}}}`,
+			doc:       `{"schemaVersion":2,"version":"v0.4.0","assets":{"linux/amd64":{"file":"barista-v0.4.0-linux-amd64.tar.gz","format":"tar.gz","entry":"barista","sha256":"xyz","size":10}}}`,
 			wantPaths: []string{"assets.linux.amd64.sha256"},
 		},
 	}

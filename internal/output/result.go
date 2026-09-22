@@ -62,6 +62,7 @@ const (
 	CodeUpgradeCheckFailed      = "UPGRADE_CHECK_FAILED"
 	CodeUpgradeDownloadFailed   = "UPGRADE_DOWNLOAD_FAILED"
 	CodeUpgradeChecksumMismatch = "UPGRADE_CHECKSUM_MISMATCH"
+	CodeUpgradeExtractFailed    = "UPGRADE_EXTRACT_FAILED"
 	CodeUpgradeReplaceFailed    = "UPGRADE_REPLACE_FAILED"
 	CodeUsageError              = "USAGE_ERROR"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"

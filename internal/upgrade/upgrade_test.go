@@ -16,11 +16,11 @@ import (
 )
 
 const validManifest = `{
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "version": "v0.3.0",
   "assets": {
-    "windows/amd64": {"file": "barista-windows-amd64.exe", "sha256": "abc", "size": 10},
-    "linux/amd64": {"file": "barista-linux-amd64", "sha256": "def", "size": 10}
+    "windows/amd64": {"file": "barista-v0.3.0-windows-amd64.zip", "format": "zip", "entry": "barista.exe", "sha256": "abc", "size": 10},
+    "linux/amd64": {"file": "barista-v0.3.0-linux-amd64.tar.gz", "format": "tar.gz", "entry": "barista", "sha256": "def", "size": 10}
   }
 }`
 
@@ -33,7 +33,7 @@ func TestParseManifest(t *testing.T) {
 		t.Errorf("got version %q", m.Version)
 	}
 	a, ok := m.Asset("windows", "amd64")
-	if !ok || a.File != "barista-windows-amd64.exe" {
+	if !ok || a.File != "barista-v0.3.0-windows-amd64.zip" || a.Format != "zip" || a.Entry != "barista.exe" {
 		t.Errorf("asset lookup failed: %+v", a)
 	}
 	if _, ok := m.Asset("darwin", "arm64"); ok {
@@ -41,12 +41,32 @@ func TestParseManifest(t *testing.T) {
 	}
 }
 
+func TestParseManifestEntryDefault(t *testing.T) {
+	m, e := ParseManifest([]byte(`{
+	  "schemaVersion": 2,
+	  "version": "v0.3.0",
+	  "assets": {
+	    "windows/amd64": {"file": "a.zip", "format": "zip", "sha256": "abc", "size": 10},
+	    "linux/arm64": {"file": "a.tar.gz", "format": "tar.gz", "sha256": "def", "size": 10}
+	  }
+	}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if a, _ := m.Asset("windows", "amd64"); a.Entry != "barista.exe" {
+		t.Errorf("windows default entry = %q", a.Entry)
+	}
+	if a, _ := m.Asset("linux", "arm64"); a.Entry != "barista" {
+		t.Errorf("linux default entry = %q", a.Entry)
+	}
+}
+
 func TestParseManifestInvalid(t *testing.T) {
 	for _, data := range []string{
 		"not json",
-		`{"schemaVersion": 2, "version": "v1", "assets": {"a/b": {}}}`,
-		`{"schemaVersion": 1, "assets": {"a/b": {}}}`,
-		`{"schemaVersion": 1, "version": "v1"}`,
+		`{"schemaVersion": 1, "version": "v1", "assets": {"a/b": {}}}`,
+		`{"schemaVersion": 2, "assets": {"a/b": {}}}`,
+		`{"schemaVersion": 2, "version": "v1"}`,
 	} {
 		if _, e := ParseManifest([]byte(data)); e == nil || e.Code != output.CodeUpgradeCheckFailed {
 			t.Errorf("%s: want UPGRADE_CHECK_FAILED, got %v", data, e)

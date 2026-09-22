@@ -21,6 +21,8 @@ const DefaultBaseURL = "https://github.com/ravenmk2/barista/releases/latest/down
 
 type Asset struct {
 	File   string `json:"file"`
+	Format string `json:"format"`
+	Entry  string `json:"entry"`
 	SHA256 string `json:"sha256"`
 	Size   int64  `json:"size"`
 }
@@ -66,8 +68,17 @@ func ParseManifest(data []byte) (*Manifest, *output.ErrInfo) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: fmt.Sprintf("invalid manifest: %v", err)}
 	}
-	if m.SchemaVersion != 1 || m.Version == "" || len(m.Assets) == 0 {
-		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: "manifest is missing schemaVersion 1, version or assets"}
+	if m.SchemaVersion != 2 || m.Version == "" || len(m.Assets) == 0 {
+		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: "manifest is missing schemaVersion 2, version or assets"}
+	}
+	for platform, a := range m.Assets {
+		if a.Entry == "" {
+			a.Entry = "barista"
+			if strings.HasPrefix(platform, "windows/") {
+				a.Entry = "barista.exe"
+			}
+			m.Assets[platform] = a
+		}
 	}
 	return &m, nil
 }
