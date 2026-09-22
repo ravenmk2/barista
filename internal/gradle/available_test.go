@@ -115,6 +115,27 @@ func TestMatchAvailable(t *testing.T) {
 	}
 }
 
+func TestMatchAvailablePrefersStable(t *testing.T) {
+	versions := []AvailableVersion{
+		{Version: "9.0.0-rc-1", Prerelease: true},
+		{Version: "9.0.0"},
+		{Version: "9.1.0-rc-1", Prerelease: true},
+	}
+	cases := map[string]string{
+		"9":          "9.0.0",      // stable beats a newer prerelease at the same prefix depth
+		"9.0":        "9.0.0",      // stable beats a prerelease on the same line
+		"9.1":        "9.1.0-rc-1", // a longer prefix wins over a shorter stable match
+		"9.0.0-rc-2": "9.0.0",      // missing rc falls back to the stable on the same line
+		"9.0.0-rc-1": "9.0.0-rc-1", // exact prerelease match still wins
+	}
+	for in, want := range cases {
+		got, ok := MatchAvailable(versions, in)
+		if !ok || got.Version != want {
+			t.Errorf("MatchAvailable(%q) = %v, %v; want %s", in, got.Version, ok, want)
+		}
+	}
+}
+
 func TestLatestPerMinor(t *testing.T) {
 	vs := []AvailableVersion{
 		{Version: "8.5"},

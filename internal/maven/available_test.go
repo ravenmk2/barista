@@ -48,6 +48,11 @@ func TestAvailable(t *testing.T) {
 	if !versions[len(versions)-1].Latest {
 		t.Errorf("newest version should be marked Latest: %+v", versions)
 	}
+	for _, v := range versions {
+		if wantPre := v.Version == "4.0.0-rc-4"; v.Prerelease != wantPre {
+			t.Errorf("%s: Prerelease = %v, want %v", v.Version, v.Prerelease, wantPre)
+		}
+	}
 }
 
 func TestAvailableServerError(t *testing.T) {
@@ -93,6 +98,26 @@ func TestMatchAvailable(t *testing.T) {
 			}
 			continue
 		}
+		if !ok || got.Version != want {
+			t.Errorf("MatchAvailable(%q) = %v, %v; want %s", in, got.Version, ok, want)
+		}
+	}
+}
+
+func TestMatchAvailablePrefersStable(t *testing.T) {
+	versions := []AvailableVersion{
+		{Version: "4.0.0-rc-4", Prerelease: true},
+		{Version: "4.0.0"},
+		{Version: "4.1.0-rc-1", Prerelease: true},
+	}
+	cases := map[string]string{
+		"4":          "4.0.0",      // stable beats a newer prerelease at the same prefix depth
+		"4.0.0-rc-2": "4.0.0",      // missing rc falls back to the stable on the same line
+		"4.1":        "4.1.0-rc-1", // a longer prefix wins over a shorter stable match
+		"4.0.0-rc-4": "4.0.0-rc-4", // exact prerelease match still wins
+	}
+	for in, want := range cases {
+		got, ok := MatchAvailable(in, versions)
 		if !ok || got.Version != want {
 			t.Errorf("MatchAvailable(%q) = %v, %v; want %s", in, got.Version, ok, want)
 		}

@@ -15,8 +15,9 @@ import (
 )
 
 type AvailableVersion struct {
-	Version string
-	Latest  bool
+	Version    string
+	Prerelease bool
+	Latest     bool
 }
 
 var availableHTTPClient = &http.Client{Timeout: 15 * time.Second}
@@ -27,7 +28,8 @@ var (
 )
 
 // Available lists the versions published on the Apache archive (the install
-// source), ascending by version. The newest overall is marked Latest.
+// source), ascending by version. Versions carrying a qualifier (4.0.0-rc-4)
+// are marked Prerelease; the newest overall is marked Latest.
 func Available(ctx context.Context) ([]AvailableVersion, *output.ErrInfo) {
 	index, err := fetchListing(ctx, ArchiveBase+"/")
 	if err != nil {
@@ -65,7 +67,8 @@ func Available(ctx context.Context) ([]AvailableVersion, *output.ErrInfo) {
 	sort.Slice(versions, func(i, j int) bool { return CompareVersions(versions[i], versions[j]) < 0 })
 	out := make([]AvailableVersion, len(versions))
 	for i, v := range versions {
-		out[i] = AvailableVersion{Version: v, Latest: i == len(versions)-1}
+		_, qualifier, _ := ParseVersion(v)
+		out[i] = AvailableVersion{Version: v, Prerelease: qualifier != "", Latest: i == len(versions)-1}
 	}
 	return out, nil
 }
@@ -107,9 +110,11 @@ func availableErr(err error) *output.ErrInfo {
 }
 
 // MatchAvailable picks the best match for want among available versions: an
-// exact version match wins, otherwise the highest version sharing the longest
-// numeric prefix with want (4.0.0-rc-4 falls back to 4.0.0-rc-6, 3.9 to the
-// latest 3.9.x).
+// exact version match wins, otherwise the candidates sharing the longest
+// numeric prefix with want compete — a stable release beats a prerelease at
+// the same prefix depth, then the highest version wins (4.0.0-rc-4 falls back
+// to 4.0.0 once the final exists, 3.9 to the latest 3.9.x, 4.1 to 4.1.0-rc-1
+// when no stable 4.1.x exists).
 func MatchAvailable(want string, versions []AvailableVersion) (AvailableVersion, bool) {
 	segs, _, err := ParseVersion(want)
 	if err != nil {
@@ -133,7 +138,10 @@ func MatchAvailable(want string, versions []AvailableVersion) (AvailableVersion,
 		if prefix == 0 {
 			continue
 		}
-		if prefix > bestPrefix || (prefix == bestPrefix && CompareVersions(versions[best].Version, v.Version) < 0) {
+		if prefix > bestPrefix ||
+			(prefix == bestPrefix && versions[best].Prerelease && !v.Prerelease) ||
+			(prefix == bestPrefix && versions[best].Prerelease == v.Prerelease &&
+				CompareVersions(versions[best].Version, v.Version) < 0) {
 			best, bestPrefix = i, prefix
 		}
 	}

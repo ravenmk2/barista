@@ -1,9 +1,11 @@
 package mavencli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -63,8 +65,22 @@ func installCmd() *cobra.Command {
 			}
 			jsonOut, _ := cmd.Flags().GetBool("json")
 			if match.Version != version {
-				if !jsonOut {
-					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("maven %s is not available; installing best match %s", version, match.Version)))
+				yes, _ := cmd.Flags().GetBool("yes")
+				switch {
+				case jsonOut || yes || !output.StdinIsTerminal():
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("maven %s is not available; installing best match %s", version, match.Version)))
+					}
+				default:
+					fmt.Fprintf(os.Stderr, "maven %s is not available; install best match %s? [Y/n] ", p.Cyan(version), p.Cyan(match.Version))
+					line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+					if a := strings.TrimSpace(line); strings.EqualFold(a, "n") || strings.EqualFold(a, "no") {
+						fmt.Println(p.Dim("aborted"))
+						res.Status = output.StatusSkipped
+						res.Detail = map[string]any{"reason": "aborted", "requestedVersion": version, "version": match.Version}
+						finish(cmd, []output.Result{res})
+						return nil
+					}
 				}
 				res.Detail = map[string]any{"requestedVersion": version}
 				version = match.Version
@@ -221,5 +237,6 @@ func installCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "register under this name (default: maven-<version>)")
+	cmd.Flags().Bool("yes", false, "install the best match without asking when the requested version is not available")
 	return cmd
 }

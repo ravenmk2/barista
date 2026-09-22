@@ -148,6 +148,28 @@ func TestInstall(t *testing.T) {
 	}
 }
 
+func TestInstallResolved(t *testing.T) {
+	reg, regPath := installFixture(t, "real", "")
+	versions, e := Available(context.Background())
+	if e != nil {
+		t.Fatalf("Available: %v", e)
+	}
+	match, found := MatchAvailable(versions, "8")
+	if !found {
+		t.Fatal("no match for 8")
+	}
+	res, e := InstallResolved(context.Background(), reg, regPath, match, "", nil)
+	if e != nil {
+		t.Fatalf("InstallResolved: %v", e)
+	}
+	if res.RequestedVersion != "" {
+		t.Errorf("RequestedVersion = %q, want empty (substitution is the caller's concern)", res.RequestedVersion)
+	}
+	if res.Entry.Name != "gradle-8.10.2" || res.Entry.Version != "8.10.2" {
+		t.Errorf("entry = %+v", res.Entry)
+	}
+}
+
 func TestInstallFuzzySubstitution(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
 	res, e := Install(context.Background(), reg, regPath, "8", "", nil)

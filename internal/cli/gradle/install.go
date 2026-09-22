@@ -1,9 +1,11 @@
 package gradlecli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -54,11 +56,53 @@ func installCmd() *cobra.Command {
 					failRes(e)
 					return nil
 				}
+				if reg.Find(name) != nil {
+					failRes(&output.ErrInfo{
+						Code:    output.CodeGradleExists,
+						Message: fmt.Sprintf("name %q is already registered", name),
+					})
+					return nil
+				}
 			}
 			jsonOut, _ := cmd.Flags().GetBool("json")
+			versions, e := gradle.Available(cmd.Context())
+			if e != nil {
+				failRes(e)
+				return nil
+			}
+			match, found := gradle.MatchAvailable(versions, version)
+			if !found {
+				failRes(&output.ErrInfo{
+					Code:    output.CodeGradleNotFound,
+					Message: fmt.Sprintf("no gradle version matching %q on services.gradle.org", version),
+					Hint:    "list versions with: barista gradle available --all",
+				})
+				return nil
+			}
+			requested := ""
+			if match.Version != version {
+				requested = version
+				yes, _ := cmd.Flags().GetBool("yes")
+				switch {
+				case jsonOut || yes || !output.StdinIsTerminal():
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("gradle %s is not available; installing best match %s", version, match.Version)))
+					}
+				default:
+					fmt.Fprintf(os.Stderr, "gradle %s is not available; install best match %s? [Y/n] ", p.Cyan(version), p.Cyan(match.Version))
+					line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+					if a := strings.TrimSpace(line); strings.EqualFold(a, "n") || strings.EqualFold(a, "no") {
+						fmt.Println(p.Dim("aborted"))
+						res.Status = output.StatusSkipped
+						res.Detail = map[string]any{"reason": "aborted", "requestedVersion": requested, "version": match.Version}
+						finish(cmd, []output.Result{res})
+						return nil
+					}
+				}
+			}
 			showProgress := !jsonOut && output.StderrIsTerminal()
 			start := time.Now()
-			result, e := gradle.Install(cmd.Context(), reg, regPath, version, name, &download.Options{
+			result, e := gradle.InstallResolved(cmd.Context(), reg, regPath, match, name, &download.Options{
 				OnProgress: func(received, total int64) {
 					if showProgress {
 						fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
@@ -85,11 +129,8 @@ func installCmd() *cobra.Command {
 				"version": result.Entry.Version,
 				"managed": true,
 			}
-			if result.RequestedVersion != "" {
-				if !jsonOut {
-					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("gradle %s is not available; installed best match %s", result.RequestedVersion, result.Entry.Version)))
-				}
-				res.Detail["requestedVersion"] = result.RequestedVersion
+			if requested != "" {
+				res.Detail["requestedVersion"] = requested
 			}
 			if !jsonOut {
 				fmt.Printf("installed %s (%s) at %s\n", p.Cyan(result.Entry.Name), result.Entry.Version, filepath.ToSlash(result.Entry.Path))
@@ -99,5 +140,6 @@ func installCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "register under this name (default: gradle-<version>)")
+	cmd.Flags().Bool("yes", false, "install the best match without asking when the requested version is not available")
 	return cmd
 }

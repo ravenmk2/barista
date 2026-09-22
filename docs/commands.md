@@ -278,7 +278,7 @@ barista jdk which 17
 
 - add / discover / install 的自动命名为 `maven-<version>`（完整版本号含 qualifier，如 `maven-3.9.11` / `maven-4.0.0-rc-4`），冲突自动追加 `-1` / `-2`；add 与 install 均支持 `--name` 指定注册名，名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；install 的 `--name` 与已注册名冲突报 MAVEN_EXISTS；add 的 `--default` 同时设为默认
 - set-default：对 name 校验同一名称模式 `[a-z0-9][a-z0-9._-]*`（不符为用法错误，exit 2），但不查版本号形态（remove/uninstall/set-default 本就强制精确名，不走模糊解析）
-- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀逐级放宽取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）并响亮告知替换（JSON detail 带 `requestedVersion`）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
+- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
 - available：抓取 archive.apache.org 目录列表（与 install 同一来源），默认每个 minor 线只列最新版本，`--all` 列全部；text 输出 VERSION/TAGS 表（latest / installed 标记，installed 按版本与注册表比对）；联网失败报 MAVEN_AVAILABLE_FAILED
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
@@ -424,7 +424,7 @@ barista gradle [flags] -- <gradle args...>
 - 只有 script 启动：Unix 直接 `bin/gradle`，Windows 经 `cmd /c bin/gradle.bat`（无 mvn 的 `--launch` 对应物）；解析到 JDK 时子进程 JAVA_HOME 被替换为该 JDK；Gradle 子进程非零退出时 barista exit 1
 - add / discover / install 的自动命名为 `gradle-<version>`（完整版本号含 qualifier，如 `gradle-9.0.0-rc-1`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
 - 固有局限：预发行版发行包的 jar 用裸基础版本命名（probe 不起子进程，读不出 qualifier），add / discover 对预发行版 home 只能注册基础版本（如 `9.0.0`）；install 不受此限，注册完整版本号（如 `9.0.0-rc-1`）
-- install：先经 available 列表解析版本，无完全匹配按数字段前缀逐级放宽取最高者并响亮告知替换（JSON detail 带 `requestedVersion`）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
+- install：先经 available 列表解析版本，无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
 - available：数据源 `services.gradle.org/versions/all`，过滤 snapshot / nightly / releaseNightly / broken；默认只列两个最新 major 线各 minor 的最新 final 版本（预发布只随 `--all` 出现）；tags 标记 latest / installed / rc / milestone；联网失败报 `GRADLE_AVAILABLE_FAILED`
 - which 版本解析逐级放宽：`8.10.1` → `8.10` → `8`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `gradle.default` / `jdk` 覆盖 user 注册表字段

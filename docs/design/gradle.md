@@ -37,7 +37,7 @@
 ## install
 
 - 单 Provider：services.gradle.org（`downloadUrl` 直接取自 `/versions/all`，一律 bin zip）
-- 下载前先经 `Available` + `MatchAvailable` 解析版本：完全一致直接装；无完全匹配按数字段前缀逐级放宽取最高者（如 `8.10.1` → `8.10.2`、`8` → 最新 8.x），替换时 text 模式 stderr 黄字告知、JSON detail 带 `requestedVersion`；完全无匹配报 GRADLE_NOT_FOUND
+- 下载前先经 `Available` + `MatchAvailable` 解析版本：完全一致直接装；无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布（rc / milestone），再取最高者（如 `8.10.1` → `8.10.2`、`8` → 最新稳定 8.x、`9.1` 在无稳定 9.1.x 时 → `9.1.0-rc-1`）；解析在 CLI 层完成，替换时先告知再调 `InstallResolved` 下载——TTY 下交互确认 `install best match <v>? [Y/n]`（默认 yes，回答 n 中止，结果 skipped / reason=aborted、exit 0），非 TTY / `--json` / `--yes` 不询问、只打 stderr 黄字（JSON detail 带 `requestedVersion`）；完全无匹配报 GRADLE_NOT_FOUND
 - 下载后强制 sha256 校验：优先用 `/versions/all` 内联的 `checksum` 字段，缺省时下载 `checksumUrl` 旁挂文件；不匹配报 GRADLE_CHECKSUM_MISMATCH
 
 ## config（内省）

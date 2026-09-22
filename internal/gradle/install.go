@@ -66,10 +66,10 @@ func InstallDir(cfgValue string) (string, error) {
 	return DefaultInstallDir()
 }
 
-// Install resolves version against the available list, downloads the
-// distribution zip (sha256-verified), extracts it under the managed install
-// dir, probes the result and registers it. RequestedVersion in the result is
-// set when the requested version was substituted by a best match.
+// Install resolves version against the available list (exact match wins,
+// otherwise the best prefix match per MatchAvailable) and installs the match.
+// RequestedVersion in the result is set when the requested version was
+// substituted by a best match.
 func Install(ctx context.Context, reg *Registry, regPath, version, name string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
 	if name != "" && reg.Find(name) != nil {
 		return nil, &output.ErrInfo{
@@ -89,11 +89,28 @@ func Install(ctx context.Context, reg *Registry, regPath, version, name string, 
 			Hint:    "list versions with: barista gradle available --all",
 		}
 	}
-	requested := ""
-	if match.Version != version {
-		requested = version
-		version = match.Version
+	res, e := InstallResolved(ctx, reg, regPath, match, name, dlOpts)
+	if e != nil {
+		return nil, e
 	}
+	if match.Version != version {
+		res.RequestedVersion = version
+	}
+	return res, nil
+}
+
+// InstallResolved downloads the matched distribution (sha256-verified),
+// extracts it under the managed install dir, probes the result and registers
+// it. Resolution happens beforehand (see MatchAvailable), so callers can
+// surface a substitution before any download starts.
+func InstallResolved(ctx context.Context, reg *Registry, regPath string, match AvailableVersion, name string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
+	if name != "" && reg.Find(name) != nil {
+		return nil, &output.ErrInfo{
+			Code:    output.CodeGradleExists,
+			Message: fmt.Sprintf("name %q is already registered", name),
+		}
+	}
+	version := match.Version
 	if name == "" {
 		name = reg.AvailableName(NameFor(version))
 	}
@@ -177,5 +194,5 @@ func Install(ctx context.Context, reg *Registry, regPath, version, name string, 
 	if e := reg.Save(regPath); e != nil {
 		return nil, e
 	}
-	return &InstallResult{Entry: entry, RequestedVersion: requested}, nil
+	return &InstallResult{Entry: entry}, nil
 }

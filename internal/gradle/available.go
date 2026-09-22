@@ -170,8 +170,11 @@ func RecentMajors(versions []AvailableVersion, n int) []AvailableVersion {
 }
 
 // MatchAvailable picks the best match for want among available versions: an
-// exact version match wins, otherwise the highest version sharing the longest
-// numeric prefix with want (8.10.1 falls back to 8.10.2, 8 to the latest 8.x).
+// exact version match wins, otherwise the candidates sharing the longest
+// numeric prefix with want compete — a stable release beats a prerelease at
+// the same prefix depth, then the highest version wins (8.10.1 falls back to
+// 8.10.2, 8 to the latest stable 8.x, 9.1 to 9.1.0-rc-1 when no stable 9.1.x
+// exists).
 func MatchAvailable(versions []AvailableVersion, want string) (AvailableVersion, bool) {
 	segs, _, err := toolversion.Parse(want)
 	if err != nil {
@@ -195,7 +198,10 @@ func MatchAvailable(versions []AvailableVersion, want string) (AvailableVersion,
 		if prefix == 0 {
 			continue
 		}
-		if prefix > bestPrefix || (prefix == bestPrefix && toolversion.Compare(versions[best].Version, v.Version) < 0) {
+		if prefix > bestPrefix ||
+			(prefix == bestPrefix && versions[best].Prerelease && !v.Prerelease) ||
+			(prefix == bestPrefix && versions[best].Prerelease == v.Prerelease &&
+				toolversion.Compare(versions[best].Version, v.Version) < 0) {
 			best, bestPrefix = i, prefix
 		}
 	}
