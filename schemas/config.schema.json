@@ -28,7 +28,7 @@
       "type": "string",
       "enum": ["official", "cn", "tuna", "huawei", "tencent"],
       "default": "official",
-      "description": "Global download mirror preset for JDK/Maven/Gradle binary downloads; only affects binary downloads — version metadata and checksums always come from official sources. Overridden per domain by jdk/maven/gradle.download.mirror"
+      "description": "Global download mirror preset for JDK/Maven/Gradle/Node.js binary downloads; only affects binary downloads — version metadata and checksums always come from official sources. Overridden per domain by jdk/maven/gradle/node.download.mirror"
     },
     "jdk.download.mirror": {
       "type": "string",
@@ -53,6 +53,15 @@
       ],
       "default": "official",
       "description": "Download mirror for Gradle binary downloads: a preset name or a custom https:// base URL mirroring services.gradle.org/distributions. Overrides download.mirror; only affects binary downloads — /versions/all metadata and the sha256 checksum always come from official sources"
+    },
+    "node.download.mirror": {
+      "type": "string",
+      "anyOf": [
+        {"enum": ["official", "cn", "tuna", "huawei", "tencent"]},
+        {"pattern": "^https://"}
+      ],
+      "default": "official",
+      "description": "Download mirror for Node.js binary downloads: a preset name or a custom https:// base URL mirroring the nodejs.org dist layout. Overrides download.mirror; only affects binary downloads — index.json metadata and SHASUMS256.txt checksums always come from official sources"
     }
   }
 }

@@ -11,6 +11,7 @@ import (
 	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
+	"barista/internal/node"
 	"barista/internal/output"
 	"barista/internal/workspace"
 )
@@ -252,6 +253,65 @@ func TestCheckRepoCheckoutDeep(t *testing.T) {
 	r := checkRepoCheckout(context.Background(), ws, repo, true)
 	if r.Status != output.StatusFailed || r.Error.Code != output.CodeRepoRemoteMismatch {
 		t.Errorf("mismatched origin want failed REPO_REMOTE_MISMATCH, got %v", r)
+	}
+}
+
+func makeNodeHome(t *testing.T, root, name string) string {
+	t.Helper()
+	dir := filepath.Join(root, name)
+	bin := node.BinaryPath(dir)
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bin, []byte(""), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func TestCheckNodeEntry(t *testing.T) {
+	root := t.TempDir()
+	home := makeNodeHome(t, root, "node-22")
+	e := node.Entry{Name: "node-22.14.0", Version: "22.14.0", Path: home}
+	if r := checkNodeEntry(e); r.Status != output.StatusOK {
+		t.Errorf("want ok, got %v", r.Error)
+	}
+	e.Path = filepath.Join(root, "gone")
+	r := checkNodeEntry(e)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeNodeNotFound {
+		t.Errorf("want failed NODE_NOT_FOUND, got %v", r)
+	}
+	if r.Error.Hint == "" {
+		t.Error("failed check must carry a fix hint")
+	}
+}
+
+func TestCheckNodeDefault(t *testing.T) {
+	reg := &node.Registry{}
+	if r := checkNodeDefault(reg); r.Status != output.StatusSkipped {
+		t.Errorf("unset default want skipped, got %s", r.Status)
+	}
+	reg.Default = "ghost"
+	if r := checkNodeDefault(reg); r.Status != output.StatusFailed {
+		t.Errorf("dangling default want failed, got %s", r.Status)
+	}
+	reg.Installations = []node.Entry{{Name: "ghost", Version: "22.14.0", Path: "/n/22"}}
+	if r := checkNodeDefault(reg); r.Status != output.StatusOK {
+		t.Errorf("resolvable default want ok, got %v", r.Error)
+	}
+}
+
+func TestCheckNodeSpec(t *testing.T) {
+	nodeReg := &node.Registry{Installations: []node.Entry{{Name: "node-22.14.0", Version: "22.14.0", Path: "/n/22"}}}
+	if r := checkNodeSpec("workspace", "properties.json", "22", "workspace properties", nodeReg); r.Status != output.StatusOK {
+		t.Errorf("prefix-resolvable spec want ok, got %v", r.Error)
+	}
+	if r := checkNodeSpec("workspace", "app", "node-22.14.0", "repo properties", nodeReg); r.Status != output.StatusOK {
+		t.Errorf("name spec want ok, got %v", r.Error)
+	}
+	r := checkNodeSpec("workspace", "properties.json", "24", "workspace properties", nodeReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeNodeNotFound {
+		t.Errorf("want failed NODE_NOT_FOUND, got %v", r)
 	}
 }
 

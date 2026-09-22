@@ -13,6 +13,7 @@ import (
 	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
+	"barista/internal/node"
 	"barista/internal/workspace"
 	"barista/schemas"
 )
@@ -162,6 +163,13 @@ func schemaValidateCmd() *cobra.Command {
 			case "gradle":
 				var err error
 				p, err = gradle.RegistryPath()
+				if err != nil {
+					schemaEnvError(err.Error())
+					return nil
+				}
+			case "node":
+				var err error
+				p, err = node.RegistryPath()
 				if err != nil {
 					schemaEnvError(err.Error())
 					return nil

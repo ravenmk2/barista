@@ -18,6 +18,7 @@ func TestValidateMirror(t *testing.T) {
 		{DomainMaven, "cn"},
 		{DomainMaven, "https://mirrors.example.com/apache"},
 		{DomainGradle, "https://mirrors.example.com/gradle/"},
+		{DomainNode, "https://mirrors.example.com/node"},
 	}
 	for _, tc := range valid {
 		if err := ValidateMirror(tc.domain, tc.value); err != nil {
@@ -30,6 +31,7 @@ func TestValidateMirror(t *testing.T) {
 		{DomainMaven, "bogus"},
 		{DomainMaven, "http://insecure.example.com/apache"},
 		{DomainGradle, "ftp://mirrors.example.com/gradle"},
+		{DomainNode, "http://insecure.example.com/node"},
 	}
 	for _, tc := range invalid {
 		if err := ValidateMirror(tc.domain, tc.value); err == nil {
@@ -67,6 +69,10 @@ func TestMirrorBase(t *testing.T) {
 		{DomainGradle, "tencent", "https://mirrors.cloud.tencent.com/gradle"},
 		{DomainMaven, "https://mirrors.example.com/apache/", "https://mirrors.example.com/apache"},
 		{DomainGradle, "https://mirrors.example.com/gradle", "https://mirrors.example.com/gradle"},
+		{DomainNode, "cn", "https://cdn.npmmirror.com/binaries/node"},
+		{DomainNode, "tuna", "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release"},
+		{DomainNode, "huawei", "https://repo.huaweicloud.com/nodejs"},
+		{DomainNode, "tencent", ""},
 	}
 	for _, tc := range cases {
 		got, err := MirrorBase(tc.domain, tc.value)

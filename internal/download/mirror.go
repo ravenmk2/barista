@@ -12,6 +12,7 @@ const (
 	DomainJDK    = "jdk"
 	DomainMaven  = "maven"
 	DomainGradle = "gradle"
+	DomainNode   = "node"
 )
 
 // MirrorPresets maps a preset name to per-domain binary download base URLs;
@@ -22,14 +23,17 @@ var MirrorPresets = map[string]map[string]string{
 		DomainJDK:    "https://mirrors.tuna.tsinghua.edu.cn/Adoptium",
 		DomainMaven:  "https://mirrors.tuna.tsinghua.edu.cn/apache",
 		DomainGradle: "https://mirrors.cloud.tencent.com/gradle",
+		DomainNode:   "https://cdn.npmmirror.com/binaries/node",
 	},
 	"tuna": {
 		DomainJDK:   "https://mirrors.tuna.tsinghua.edu.cn/Adoptium",
 		DomainMaven: "https://mirrors.tuna.tsinghua.edu.cn/apache",
+		DomainNode:  "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release",
 	},
 	"huawei": {
 		DomainMaven:  "https://repo.huaweicloud.com/apache",
 		DomainGradle: "https://repo.huaweicloud.com/gradle",
+		DomainNode:   "https://repo.huaweicloud.com/nodejs",
 	},
 	"tencent": {
 		DomainMaven:  "https://mirrors.cloud.tencent.com/apache",
@@ -47,9 +51,9 @@ func presetNames() string {
 }
 
 // ValidateMirror checks a per-domain mirror value: empty and official are
-// always legal, a known preset name is legal, and maven/gradle additionally
-// accept a custom https:// base URL (the jdk domain does not: the temurin
-// mirror layout cannot be derived from an arbitrary base).
+// always legal, a known preset name is legal, and maven/gradle/node
+// additionally accept a custom https:// base URL (the jdk domain does not:
+// the temurin mirror layout cannot be derived from an arbitrary base).
 func ValidateMirror(domain, value string) error {
 	if value == "" || value == "official" {
 		return nil

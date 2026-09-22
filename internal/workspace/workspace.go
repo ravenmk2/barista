@@ -45,6 +45,7 @@ type ConfigFile struct {
 	JDKDownloadMirror    string `json:"jdk.download.mirror"`
 	MavenDownloadMirror  string `json:"maven.download.mirror"`
 	GradleDownloadMirror string `json:"gradle.download.mirror"`
+	NodeDownloadMirror   string `json:"node.download.mirror"`
 }
 
 type Workspace struct {
@@ -275,6 +276,7 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 		{"jdk.download.mirror", download.DomainJDK, cf.JDKDownloadMirror},
 		{"maven.download.mirror", download.DomainMaven, cf.MavenDownloadMirror},
 		{"gradle.download.mirror", download.DomainGradle, cf.GradleDownloadMirror},
+		{"node.download.mirror", download.DomainNode, cf.NodeDownloadMirror},
 	} {
 		if err := download.ValidateMirror(kv.domain, kv.value); err != nil {
 			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: %s: %v", source, kv.key, err)}
@@ -331,6 +333,9 @@ func MergeConfig(user, ws ConfigFile) ConfigFile {
 	if ws.GradleDownloadMirror != "" {
 		out.GradleDownloadMirror = ws.GradleDownloadMirror
 	}
+	if ws.NodeDownloadMirror != "" {
+		out.NodeDownloadMirror = ws.NodeDownloadMirror
+	}
 	return out
 }
 
@@ -369,6 +374,10 @@ func (cf ConfigFile) MirrorValueFor(domain string) string {
 	case download.DomainGradle:
 		if cf.GradleDownloadMirror != "" {
 			value = cf.GradleDownloadMirror
+		}
+	case download.DomainNode:
+		if cf.NodeDownloadMirror != "" {
+			value = cf.NodeDownloadMirror
 		}
 	}
 	return value

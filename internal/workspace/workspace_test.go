@@ -218,6 +218,7 @@ func TestParseConfigMirror(t *testing.T) {
 		`{"jdk.download.mirror":"tuna"}`,
 		`{"maven.download.mirror":"https://mirrors.example.com/apache"}`,
 		`{"gradle.download.mirror":"https://mirrors.example.com/gradle"}`,
+		`{"node.download.mirror":"https://mirrors.example.com/node"}`,
 	}
 	for _, doc := range valid {
 		if _, err := parseConfig([]byte(doc), "config.json"); err != nil {
@@ -232,6 +233,7 @@ func TestParseConfigMirror(t *testing.T) {
 		`{"maven.download.mirror":"bogus"}`,
 		`{"maven.download.mirror":"http://insecure.example.com/apache"}`,
 		`{"gradle.download.mirror":"ftp://mirrors.example.com/gradle"}`,
+		`{"node.download.mirror":"http://insecure.example.com/node"}`,
 	}
 	for _, doc := range invalid {
 		_, err := parseConfig([]byte(doc), "config.json")
@@ -314,6 +316,9 @@ func TestMirrorBaseFor(t *testing.T) {
 		{"domain official beats global", ConfigFile{DownloadMirror: "cn", GradleDownloadMirror: "official"}, "gradle", ""},
 		{"custom base", ConfigFile{MavenDownloadMirror: "https://mirrors.example.com/apache/"}, "maven", "https://mirrors.example.com/apache"},
 		{"jdk preset", ConfigFile{JDKDownloadMirror: "tuna"}, "jdk", "https://mirrors.tuna.tsinghua.edu.cn/Adoptium"},
+		{"node preset", ConfigFile{NodeDownloadMirror: "cn"}, "node", "https://cdn.npmmirror.com/binaries/node"},
+		{"node global preset", ConfigFile{DownloadMirror: "tuna"}, "node", "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release"},
+		{"node preset without coverage", ConfigFile{DownloadMirror: "tencent"}, "node", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

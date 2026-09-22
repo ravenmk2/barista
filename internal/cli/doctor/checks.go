@@ -13,6 +13,7 @@ import (
 	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
+	"barista/internal/node"
 	"barista/internal/output"
 	"barista/internal/uv"
 	"barista/internal/workspace"
@@ -268,6 +269,65 @@ func checkGradleDefaultSpec(scope, subject, spec, howSet string, gradleReg *grad
 			"run: barista gradle list; fix the property or register the installation")
 	}
 	return ok(subject, scope, check, map[string]any{"gradle": spec, "via": howSet})
+}
+
+func checkNodeEntry(e node.Entry) output.Result {
+	const check = "nodeInstall"
+	bin := node.BinaryPath(e.Path)
+	if _, err := os.Stat(bin); err != nil {
+		return failed(e.Name, "user", check, output.CodeNodeNotFound,
+			fmt.Sprintf("%s not found at %s", filepath.ToSlash(mustRelToHome(e.Path, bin)), filepath.ToSlash(e.Path)),
+			"run: barista node remove "+e.Name+"; or re-add with: barista node add "+filepath.ToSlash(e.Path))
+	}
+	return ok(e.Name, "user", check, map[string]any{
+		"version": e.Version, "path": filepath.ToSlash(e.Path),
+	})
+}
+
+func mustRelToHome(home, target string) string {
+	rel, err := filepath.Rel(home, target)
+	if err != nil {
+		return target
+	}
+	return rel
+}
+
+func checkNodeProbe(e node.Entry) output.Result {
+	const check = "nodeProbe"
+	info, perr := node.Probe(e.Path)
+	if perr != nil {
+		perr.Hint = "run: barista node remove " + e.Name + "; or re-add with: barista node add " + filepath.ToSlash(e.Path)
+		return errResult(e.Name, "user", check, perr)
+	}
+	if info.Version != e.Version {
+		return failed(e.Name, "user", check, output.CodeNodeProbeFailed,
+			fmt.Sprintf("registered %s but node --version reports %s", e.Version, info.Version),
+			"re-register with: barista node remove "+e.Name+" && barista node add "+filepath.ToSlash(e.Path))
+	}
+	return ok(e.Name, "user", check, map[string]any{"version": info.Version, "path": filepath.ToSlash(e.Path)})
+}
+
+func checkNodeDefault(reg *node.Registry) output.Result {
+	const name, check = "node.json default", "nodeDefault"
+	if reg.Default == "" {
+		return skipped(name, "user", check, "no default configured")
+	}
+	if reg.Find(reg.Default) == nil {
+		return failed(name, "user", check, output.CodeNodeNotFound,
+			fmt.Sprintf("default node %q is not registered", reg.Default),
+			"fix with: barista node set-default <name>")
+	}
+	return ok(name, "user", check, map[string]any{"default": reg.Default})
+}
+
+func checkNodeSpec(scope, subject, spec, howSet string, nodeReg *node.Registry) output.Result {
+	const check = "nodeSpec"
+	if _, _, e := nodeReg.Resolve(spec); e != nil {
+		return failed(subject, scope, check, output.CodeNodeNotFound,
+			fmt.Sprintf("node %q (from %s) is not registered", spec, howSet),
+			"run: barista node list; fix the property or register the installation")
+	}
+	return ok(subject, scope, check, map[string]any{"node": spec, "via": howSet})
 }
 
 func checkRepoCheckout(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo, deep bool) output.Result {

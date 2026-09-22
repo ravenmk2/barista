@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ravenmk2/barista/master/schemas/node.schema.json",
+  "title": "barista node.json",
+  "description": "Node.js registry (user level ~/.barista/node.json); missing file means an empty registry",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "installations": {
+      "type": "array",
+      "description": "Registered Node.js installations in declaration order",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "version", "path"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "description": "Unique logical name (auto-named node-<version> by add/install, e.g. node-22.14.0)"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Full version string without the v prefix (e.g. 22.14.0)"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute node home (the distribution root; node.exe at the root on Windows, bin/node elsewhere)"
+          },
+          "managed": {
+            "type": "boolean",
+            "default": false,
+            "description": "True when installed by barista node install (under installDir); eligible for barista node uninstall"
+          }
+        }
+      }
+    },
+    "default": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the default Node.js installation (set by barista node set-default); overridden by workspace properties.json \"node\""
+    },
+    "installDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Install root for barista node install (set by barista node set-install-dir); must be an absolute path (~ allowed); default is the builtin ~/.barista/toolchains/node"
+    }
+  }
+}

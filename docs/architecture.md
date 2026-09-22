@@ -7,15 +7,16 @@ barista 的全局架构契约，改动代码前必读。本文件只写跨域关
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ doctor/ upgrade/ uv/）+ schema 命令
+  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ node/ doctor/ upgrade/ uv/）+ schema 命令
   workspace/        工作区发现与 .barista/ 各文件读写（repos.json / config.json / properties.json）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析
   deps/             依赖图域：建图、环检测、构建层级（纯函数）
   jdk/              JDK 域：registry、probe、版本解析、install provider
   maven/            Maven 域：registry、probe、版本解析、install provider
   gradle/           Gradle 域：registry、probe、版本解析、install provider
-  toolversion/      点分数字版本 + qualifier 的解析与比较公共包（maven / gradle 共用）
-  download/         通用下载（断点续传 / 重试）与归档解压（zip / tar.gz），jdk / maven / gradle / upgrade 共用
+  node/             Node.js 域：registry、probe（起子进程 node --version）、available/install（nodejs.org dist）
+  toolversion/      点分数字版本 + qualifier 的解析与比较公共包（maven / gradle / node 共用）
+  download/         通用下载（断点续传 / 重试）与归档解压（zip / tar.gz），jdk / maven / gradle / node / upgrade 共用
   upgrade/          自更新域：manifest、校验、可执行文件自替换
   uv/               uv 域：轻量安装器（astral-sh/uv 资产解析、校验、解压到 ~/.local/bin）
   runner/           通用并发 worker pool（泛型，不绑定 git 语义）
@@ -55,15 +56,17 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
   jdk.json             JDK registry（jdks 数组 + defaults major→name + installDir；不存在视为空注册表；临时文件 + rename 原子写）
   maven.json           Maven registry（installations 数组 + default + jdk + installDir；不存在视为空注册表；原子写同上）
   gradle.json          Gradle registry（同 maven.json 结构：installations + default + jdk + installDir；原子写同上）
+  node.json            Node.js registry（installations + default + installDir，无 jdk 字段；原子写同上）
   toolchains/          barista 托管安装的工具链（仅 install 产物；add/discover 注册的可在任意路径）
     jdk/<name>/        barista jdk install 安装根（JDK 域缺省 installDir）
     maven/<name>/      barista maven install 安装根（Maven 域缺省 installDir）
     gradle/<name>/     barista gradle install 安装根（Gradle 域缺省 installDir）
+    node/<name>/       barista node install 安装根（Node.js 域缺省 installDir）
 ```
 
 - workspace 级 `<workspace>/.barista/`：`config.json`（与 user 级同 schema，覆盖 user 级）、`repos.json`（仓库清单，纯事实）、`properties.json`（workspace 级偏好 KV，仅 workspace 级存在）
 - 优先级（低→高）：内置默认 → user level → workspace level（config.json + properties.json，含 git.* 键）→ repo properties（per-repo 值）→ 命令行 flag；bool flag 用 `cmd.Flags().Changed()` 判断是否显式设置
-- 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**workspace 级行为/环境偏好**（`git.fetch.prune`、`jdk`、`maven.*`、`gradle.*` 等）放 properties.json。拿不准时按此规则裁决。键命名约定：跨域工具链声明用裸名（`jdk`），域专属偏好用点分前缀（`maven.*`、`gradle.*`、`git.*`）
+- 归属判定规则：**客观事实**（baseUrl、defaultBranch、repos）放 repos.json 顶层字段；**workspace 级行为/环境偏好**（`git.fetch.prune`、`jdk`、`node`、`maven.*`、`gradle.*` 等）放 properties.json。拿不准时按此规则裁决。键命名约定：跨域工具链声明用裸名（`jdk`、`node`），域专属偏好用点分前缀（`maven.*`、`gradle.*`、`git.*`）
 - 所有层级对未知字段宽容（忽略）
 
 ## 行为规则
@@ -81,6 +84,7 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 | [design/jdk.md](design/jdk.md) | jdk registry、probe、discover、install / download / available / uninstall |
 | [design/maven.md](design/maven.md) | maven registry、probe、版本解析、install、偏好分层 |
 | [design/gradle.md](design/gradle.md) | gradle registry、probe、available、install、偏好分层 |
+| [design/node.md](design/node.md) | node registry、probe、available、install、mirror、use/env、偏好分层 |
 | [design/executors.md](design/executors.md) | `barista mvn` / `barista java` / `barista gradle` 执行器、planExec、注入规则、启动模式 |
 | [design/doctor.md](design/doctor.md) | doctor 体检项与执行模型 |
 | [design/uv.md](design/uv.md) | uv 轻量安装器（无注册表，Python 委托 uv 自身） |

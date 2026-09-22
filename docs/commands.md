@@ -15,16 +15,17 @@ barista CLI 的完整命令参考。全局设计契约（分层、输出、退�
 
 文本输出的颜色由两级 config 的 `color`（`auto|always|never`，何时着色；`NO_COLOR` 环境变量优先于一切）与 `colorProfile`（`auto|truecolor|256|16`，色深；`auto` 按终端探测自动降级，其余值强制）控制。
 
-下载镜像由 4 个 config 键控制（user 级与 workspace 级 config.json 合并、workspace 覆盖 user，与 `parallel` 同一契约）：
+下载镜像由 5 个 config 键控制（user 级与 workspace 级 config.json 合并、workspace 覆盖 user，与 `parallel` 同一契约）：
 
 | 键                      | 取值                                                        | 作用域                          |
 | ----------------------- | ----------------------------------------------------------- | ------------------------------- |
-| `download.mirror`       | `official` / 预设名（`cn` `tuna` `huawei` `tencent`）       | 三域默认                        |
+| `download.mirror`       | `official` / 预设名（`cn` `tuna` `huawei` `tencent`）       | 四域默认                        |
 | `jdk.download.mirror`   | 同上（仅预设，不接受自定义 URL）                            | `jdk install` / `jdk download`，仅 temurin 生效 |
 | `maven.download.mirror` | 预设名或自定义 `https://` 基址                              | `maven install`                 |
 | `gradle.download.mirror`| 预设名或自定义 `https://` 基址                              | `gradle install`                |
+| `node.download.mirror`  | 预设名或自定义 `https://` 基址                              | `node install`                  |
 
-分域键优先于全局键；`jdk install` / `jdk download` / `maven install` / `gradle install` 的 `--mirror` flag 显式给出时优先级最高（覆盖两级 config；`--mirror official` 临时禁用已配置的镜像）。镜像只替换二进制下载基址，版本元数据与校验和恒走官方；镜像不可达 / 404 时自动回退官方源一次（回退时 stderr 提示完整官方 URL），校验失败不静默回退（报 `*_CHECKSUM_MISMATCH`，hint 指向镜像配置）。详见 [design/mirror.md](design/mirror.md)。
+分域键优先于全局键；`jdk install` / `jdk download` / `maven install` / `gradle install` / `node install` 的 `--mirror` flag 显式给出时优先级最高（覆盖两级 config；`--mirror official` 临时禁用已配置的镜像）。镜像只替换二进制下载基址，版本元数据与校验和恒走官方；镜像不可达 / 404 时自动回退官方源一次（回退时 stderr 提示完整官方 URL），校验失败不静默回退（报 `*_CHECKSUM_MISMATCH`，hint 指向镜像配置）。详见 [design/mirror.md](design/mirror.md)。
 
 fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--version` flag。
 
@@ -33,8 +34,8 @@ fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--v
 - text：非 TTY 逐条输出；TTY 下 git 命令组渲染实时面板
 - JSON：`--json` 时输出 envelope，含 `schemaVersion: 1`、`command`、`success`、`results`；结果顺序与声明顺序一致
 - 错误：stderr 输出 `barista: CODE: message`（可带 `hint:` 行），`--json` 时 stdout 另出 error envelope
-- 例外：`jdk`/`maven`/`gradle` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven/gradle 的 `path`/`home`/`which --pathonly` 输出纯路径，无尾随换行
-- jdk/maven/gradle 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
+- 例外：`jdk`/`maven`/`gradle`/`node` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven/gradle 的 `path`/`home` 与各域 `which --pathonly` 输出纯路径，无尾随换行
+- jdk/maven/gradle/node 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
 
 ### 退出码
 
@@ -67,8 +68,9 @@ barista completion powershell >> $PROFILE
 - jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
 - gradle 组位置参数：`which`/`path`/`home` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
+- node 组位置参数：`which`/`env`/`use` 补 name + version；`remove`/`uninstall`/`set-default` 补 name
 - `mvn --jdk` / `java --jdk` / `gradle --jdk`：JDK spec
-- `jdk env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
+- `jdk env --shell` / `node env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
 - `jdk download --os` / `--arch`：linux/darwin/windows 与 amd64/arm64 静态枚举；`--output`：目录
 - `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录；`repo remove` 第一段：清单中的仓库名
 
@@ -451,6 +453,45 @@ barista gradle -- build test
 barista gradle --jdk 17 --dry-run -- -q assemble
 ```
 
+## node — Node.js 注册表管理
+
+注册表为 user 级 `~/.barista/node.json`。托管安装目录默认 `~/.barista/toolchains/node/`（node.json 顶层 `installDir` 字段，用 `barista node set-install-dir` 设置）。裸 `barista node` 显示帮助（node 组不是执行器）；`use` 是 node 组唯一需要工作区的命令。
+
+### 子命令
+
+| 命令                     | 行为                                                                       |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `add <path>`             | 注册已安装的 Node.js（起 `node --version` 探测版本）                       |
+| `install <version>`      | 从 nodejs.org 下载发行包（sha256 校验）安装到托管目录                      |
+| `available`              | 列出 nodejs.org 上可下载的版本（`--all` 列全部历史版本）                   |
+| `list`                   | 列出已注册 Node.js（别名 `ls`）                                            |
+| `which [name\|version]`  | 按名或版本解析（版本逐级放宽，`v` 前缀可省略）；不传参数取生效默认（恒输出 JSON） |
+| `env <name\|version>`    | 打印 NODE_HOME/PATH 导出语句（`--shell sh\|cmd\|powershell`，缺省自动检测当前 shell，供 eval / CI 消费） |
+| `set-default <name>`     | 设置 user 级默认 Node.js（workspace 级覆盖用 `barista node use`）          |
+| `set-install-dir <path>` | 设置托管安装根目录（写入 node.json `installDir`；`--reset` 恢复内置默认）  |
+| `use <name\|version>`    | 设置当前工作区的 Node.js（写 workspace `.barista/properties.json` 的 `node` 键；不写任何版本文件） |
+| `remove <name>`          | 仅注销，保留磁盘文件（若为 user 级 default 一并清除）                      |
+| `uninstall <name>`       | 删除 managed 安装并注销（同样清除指向它的 user 级 default）                |
+
+### 要点
+
+- add / install 的自动命名为 `node-<version>`（完整版本号不带 `v`，如 `node-22.14.0`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
+- install：先经 available 列表解析版本（`22` / `v22.14.0` 均可），无完全匹配按数字段前缀放宽取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`；detail 恒带 `downloadUrl` 记录实际下载来源，镜像生效时另带 `mirror`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（official / 预设名 / 自定义 `https://` 基址，`official` 临时禁用镜像）；sha256 取自官方 `SHASUMS256.txt` 对应资产行，不匹配报 `NODE_CHECKSUM_MISMATCH`；解压后 probe 校验 `node --version` 与目标版本一致，失败清理目录；不支持的平台报 `NODE_UNSUPPORTED_PLATFORM`
+- available：数据源 `nodejs.org/dist/index.json`，按版本降序；默认只列六个最新 major 线各自的最新版本；tags 标记 latest / lts:<代号> / installed；联网失败报 `NODE_AVAILABLE_FAILED`
+- which 版本解析逐级放宽：`22.14.0` → `22.14` → `22`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
+- env：PATH 项的 bin 目录 Windows 为安装根本身（`node.exe` / `npm.cmd` 在根），Unix 为 `<home>/bin`；其余契约（shell 检测、别名、`--json` envelope）同 `jdk env`
+- 生效优先级：workspace 配置 `node` 覆盖 user 注册表 `default` 字段
+- use：只写 workspace properties.json 的 `node` 键（node 没有 `.java-version` 等价物）；不在工作区报 `WORKSPACE_NOT_FOUND`（exit 2）
+- remove/uninstall 契约与 maven 组相同：remove 直接注销无确认；uninstall 仅 managed，TTY 询问 / 非 TTY exit 2 / `--yes` 直通；两者若为 user 级 default 均一并清除该 default
+
+```bash
+barista node available
+barista node install 22
+barista node set-default node-22.14.0
+barista node use 22
+barista node env node-22.14.0 --shell sh
+```
+
 ## doctor — 环境体检
 
 诊断 user 级环境，在 workspace 内时自动加查 workspace 级（不在 workspace 不算错误）。只诊断不修复，每个 failed 检查带修复 hint。
@@ -461,12 +502,12 @@ barista doctor [--deep]
 
 | flag     | 说明                                                              |
 | -------- | ----------------------------------------------------------------- |
-| `--deep` | 追加起子进程的检查：重新 probe 每个 JDK（`java -version` 比对注册版本）、逐 repo 校验 origin 与清单 URL 一致 |
+| `--deep` | 追加起子进程的检查：重新 probe 每个 JDK（`java -version` 比对注册版本）与每个 Node.js 安装（`node --version` 比对注册版本）、逐 repo 校验 origin 与清单 URL 一致 |
 
 ### 检查项
 
-- user 级：git 在 PATH；uv 可用（`uvAvailable`：PATH 命中报 ok；仅 `~/.local/bin` 存在或完全缺失均报 skipped，uv 是可选工具）；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
+- user 级：git 在 PATH；uv 可用（`uvAvailable`：PATH 命中报 ok；仅 `~/.local/bin` 存在或完全缺失均报 skipped，uv 是可选工具）；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` / `node.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Node.js 条目二进制存在（Windows 根目录 `node.exe`，Unix `bin/node`）、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` / `node` 与 per-repo properties 的 `jdk` / `maven.launch` / `node`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
 
 ### 要点
 
@@ -500,7 +541,7 @@ barista uv install [--version V] [--source S] [--yes] [--attempts N]
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` / `uv install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` / `node available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` / `node install` / `uv install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes] [--attempts N]
@@ -529,14 +570,14 @@ barista upgrade [--check] [--yes] [--attempts N]
 
 | 命令                          | 行为                                         |
 | ----------------------------- | -------------------------------------------- |
-| `list`                        | 列出可用 schema（repos / config / jdk / maven / gradle / properties / manifest） |
+| `list`                        | 列出可用 schema（repos / config / jdk / maven / gradle / node / properties / manifest） |
 | `show <name>`                 | 输出 schema 原文 JSON                        |
 | `validate <name> [file]`      | 校验配置文件                                 |
 
 ### validate 默认文件
 
 - 显式给 `file` 时校验该文件（此时不可再用 `--scope`）
-- `jdk` / `maven` / `gradle`：默认校验对应 user 级注册表（`~/.barista/jdk.json` / `maven.json` / `gradle.json`）
+- `jdk` / `maven` / `gradle` / `node`：默认校验对应 user 级注册表（`~/.barista/jdk.json` / `maven.json` / `gradle.json` / `node.json`）
 - `config`：默认同时校验 user 与 workspace 两级；`--scope user|workspace` 限定单级
 - `properties`：默认校验当前工作区 `.barista/properties.json`
 - 其他（如 `repos`）：默认校验当前工作区 `.barista/<name>.json`

@@ -14,6 +14,7 @@ import (
 	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
+	"barista/internal/node"
 	"barista/internal/output"
 	"barista/internal/runner"
 	"barista/internal/workspace"
@@ -43,7 +44,7 @@ func NewCmd(exit *int) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().Bool("deep", false, "also re-probe JDKs (spawns java) and verify repo origins against the manifest")
+	cmd.Flags().Bool("deep", false, "also re-probe JDKs (spawns java) and Node.js installations (spawns node), and verify repo origins against the manifest")
 	return cmd
 }
 
@@ -122,6 +123,25 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 		add(checkInstallDir("gradle.json installDir", "gradleInstallDir", reg.InstallDir, "barista gradle set-install-dir --reset"))
 	}
 
+	var nodeReg *node.Registry
+	if p, err := node.RegistryPath(); err != nil {
+		add(failed("node.json", "user", "nodeRegistryParse", output.CodeConfigError, err.Error(), "check that the user home directory is resolvable"))
+	} else if reg, e := node.Load(p); e != nil {
+		add(errResult("node.json", "user", "nodeRegistryParse", withHint(e, "fix or delete "+filepath.ToSlash(p))))
+	} else {
+		nodeReg = reg
+		add(ok("node.json", "user", "nodeRegistryParse", map[string]any{"registered": len(reg.Installations)}))
+		for _, entry := range reg.Installations {
+			entry := entry
+			task(func(context.Context) output.Result { return checkNodeEntry(entry) })
+			if deep {
+				task(func(context.Context) output.Result { return checkNodeProbe(entry) })
+			}
+		}
+		add(checkNodeDefault(reg))
+		add(checkInstallDir("node.json installDir", "nodeInstallDir", reg.InstallDir, "barista node set-install-dir --reset"))
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		add(failed("workspace", "workspace", "workspaceDetect", output.CodeWorkspaceNotFound, err.Error(), "the current directory may have been removed; cd into an existing directory and retry"))
@@ -176,6 +196,16 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 		}
 		for _, repo := range ws.Repos.Repos {
 			add(checkGradleWrapperFile(ws, repo, gradleReg))
+		}
+	}
+	if nodeReg != nil {
+		if v, has := ws.Props.String("node"); has && v != "" {
+			add(checkNodeSpec("workspace", "properties.json", v, "workspace properties", nodeReg))
+		}
+		for _, repo := range ws.Repos.Repos {
+			if v, has := repo.Property("node"); has && v != "" {
+				add(checkNodeSpec("workspace", repo.Name, v, "repo properties", nodeReg))
+			}
 		}
 	}
 	if v, has := ws.Props.String("maven.launch"); has && v != "" {

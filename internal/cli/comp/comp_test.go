@@ -125,8 +125,8 @@ func TestRepoNamesOutsideWorkspace(t *testing.T) {
 
 func TestSchemaNames(t *testing.T) {
 	names := SchemaNames()
-	if len(names) != 7 {
-		t.Fatalf("want 7 schema candidates, got %v", names)
+	if len(names) != 8 {
+		t.Fatalf("want 8 schema candidates, got %v", names)
 	}
 	if !strings.Contains(strings.Join(names, "\n"), "manifest\t") {
 		t.Errorf("manifest missing in %v", names)

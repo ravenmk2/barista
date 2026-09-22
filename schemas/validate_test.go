@@ -82,7 +82,7 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "config mirrors valid",
 			schema:    "config",
-			doc:       `{"download.mirror":"cn","jdk.download.mirror":"tuna","maven.download.mirror":"https://mirrors.example.com/apache","gradle.download.mirror":"huawei"}`,
+			doc:       `{"download.mirror":"cn","jdk.download.mirror":"tuna","maven.download.mirror":"https://mirrors.example.com/apache","gradle.download.mirror":"huawei","node.download.mirror":"cn"}`,
 			wantValid: true,
 		},
 		{
@@ -161,6 +161,30 @@ func TestValidate(t *testing.T) {
 			name:      "gradle bad name pattern",
 			schema:    "gradle",
 			doc:       `{"installations":[{"name":"Gradle-8.10","version":"8.10.2","path":"/opt/gradle"}]}`,
+			wantPaths: []string{"installations[0].name"},
+		},
+		{
+			name:      "node minimal valid",
+			schema:    "node",
+			doc:       `{"installations":[{"name":"node-22.14.0","version":"22.14.0","path":"/opt/node"}],"default":"node-22.14.0"}`,
+			wantValid: true,
+		},
+		{
+			name:      "node empty object valid",
+			schema:    "node",
+			doc:       `{}`,
+			wantValid: true,
+		},
+		{
+			name:      "node installation missing version",
+			schema:    "node",
+			doc:       `{"installations":[{"name":"node-22","path":"/opt/node"}]}`,
+			wantPaths: []string{"installations[0]"},
+		},
+		{
+			name:      "node bad name pattern",
+			schema:    "node",
+			doc:       `{"installations":[{"name":"Node-22","version":"22.14.0","path":"/opt/node"}]}`,
 			wantPaths: []string{"installations[0].name"},
 		},
 		{

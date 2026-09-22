@@ -9,6 +9,7 @@ import (
 	"barista/internal/gradle"
 	"barista/internal/jdk"
 	"barista/internal/maven"
+	"barista/internal/node"
 	"barista/internal/workspace"
 	"barista/schemas"
 )
@@ -133,6 +134,42 @@ func GradleSpecs() []string {
 	return out
 }
 
+func nodeRegistry() *node.Registry {
+	p, err := node.RegistryPath()
+	if err != nil {
+		return nil
+	}
+	reg, e := node.Load(p)
+	if e != nil {
+		return nil
+	}
+	return reg
+}
+
+func NodeNames() []string {
+	reg := nodeRegistry()
+	if reg == nil {
+		return nil
+	}
+	out := make([]string, 0, len(reg.Installations))
+	for _, e := range reg.Installations {
+		out = append(out, e.Name+"\t"+e.Version)
+	}
+	return out
+}
+
+func NodeSpecs() []string {
+	reg := nodeRegistry()
+	if reg == nil {
+		return nil
+	}
+	out := make([]string, 0, 2*len(reg.Installations))
+	for _, e := range reg.Installations {
+		out = append(out, e.Name+"\t"+e.Version, e.Version+"\t"+e.Name)
+	}
+	return out
+}
+
 func workspaceRepos() *workspace.Workspace {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -193,9 +230,9 @@ func Shells() []string {
 func MirrorNames() []string {
 	return []string{
 		"official\tofficial sources",
-		"cn\tTUNA (jdk/maven) + Tencent Cloud (gradle)",
-		"tuna\tTUNA (jdk/maven)",
-		"huawei\tHuawei Cloud (maven/gradle)",
+		"cn\tTUNA (jdk/maven) + Tencent Cloud (gradle) + npmmirror (node)",
+		"tuna\tTUNA (jdk/maven/node)",
+		"huawei\tHuawei Cloud (maven/gradle/node)",
 		"tencent\tTencent Cloud (maven/gradle)",
 	}
 }
