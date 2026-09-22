@@ -251,7 +251,7 @@ barista deps order --label java
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符按用法错误处理（exit 2）；`--default` 同时设为该 major 的默认
 - install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试（默认 10 次，`--attempts` 覆盖，必须 >= 1），TTY 下 stderr 渲染进度条；`--mirror` 显式覆盖 config 的镜像配置（仅 temurin 生效，值域为 official / 预设名，`official` 临时禁用镜像）；JSON detail 恒带 `downloadUrl` 记录实际下载来源（镜像生效时另带 `mirror`）；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
 - download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（同 install）；JSON detail 的 `url` 为实际下载来源（回退后为官方 URL），镜像生效时另带 `mirror`；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
-- available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
+- available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gen-distros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
 - remove：直接注销，无确认、不删文件（幂等），并级联清理 jdk.json 中所有指向该 JDK 的 defaults
@@ -595,7 +595,7 @@ barista uv install [--version V] [--source S] [--yes] [--attempts N]
 
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` / `node available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` / `node install` / `uv install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
+从最新 GitHub release 的清单文件（`release.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` / `node available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` / `node install` / `uv install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes] [--attempts N]
@@ -609,14 +609,15 @@ barista upgrade [--check] [--yes] [--attempts N]
 
 ### 行为
 
-- 读取 `releases/latest/download/manifest.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
-- 下载对应 GOOS/GOARCH 的归档 asset（windows 为 zip，其余为 tar.gz；断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
-- 从归档提取二进制条目（manifest 的 `entry` 字段指定），format 不支持或条目缺失报 `UPGRADE_EXTRACT_FAILED`
+- 读取 `releases/latest/download/release.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
+- 资产选择：清单 `assets[]` 中 `kind` 前缀为 `executable-` 且 `platforms` 含当前 GOOS/GOARCH 的条目，必须恰好一条；下载 URL 优先取条目的可选 `url` 字段，否则 `<base>/<file>`
+- 下载归档 asset（windows 为 zip，其余为 tar.gz；断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后按 `hashes.sha256` 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
+- 从归档提取二进制条目（`entry` 字段指定），kind 后缀不认识（将来新容器格式）或条目缺失报 `UPGRADE_EXTRACT_FAILED`
 - 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行 upgrade 时自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
 - 确认契约：TTY 交互询问（`[Y/n]` 默认 yes，回答 n 取消），非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
 - exit 0 已最新、升级成功或 TTY 下回答 n 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
 
-清单文件（schemaVersion 2）由 release workflow 生成（六平台归档 asset 的 file/format/entry/sha256/size），发布前用 `barista schema validate manifest <file>` 校验（不带 file 会解析到工作区默认路径 `<workspace>/.barista/manifest.json`）。
+清单文件 `release.json`（schemaVersion 2）由 release workflow 生成：顶层含 `version` / `commit` / `assets[]`，每个资产记录 `kind` / `platforms` / `file` / `entry` / `hashes` / `size`（可选 `url`）；发布前用 `barista schema validate release <file>` 校验。
 
 ## schema — 内置 JSON Schema 工具
 
@@ -624,7 +625,7 @@ barista upgrade [--check] [--yes] [--attempts N]
 
 | 命令                          | 行为                                         |
 | ----------------------------- | -------------------------------------------- |
-| `list`                        | 列出可用 schema（repos / config / jdk / maven / gradle / node / properties / manifest） |
+| `list`                        | 列出可用 schema（repos / config / jdk / maven / gradle / node / properties / release） |
 | `show <name>`                 | 输出 schema 原文 JSON                        |
 | `validate <name> [file]`      | 校验配置文件                                 |
 

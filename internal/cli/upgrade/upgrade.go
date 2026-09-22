@@ -62,6 +62,7 @@ func NewCmd(exit *int, version string) *cobra.Command {
 				Detail: map[string]any{
 					"current":         version,
 					"latest":          m.Version,
+					"commit":          m.Commit,
 					"updateAvailable": newer,
 				},
 			}
@@ -82,11 +83,11 @@ func NewCmd(exit *int, version string) *cobra.Command {
 				emit(cmd, res)
 				return nil
 			}
-			asset, ok := m.Asset(runtime.GOOS, runtime.GOARCH)
+			asset, ok := m.ExecutableAsset(runtime.GOOS, runtime.GOARCH)
 			if !ok {
 				failResult(cmd, &output.ErrInfo{
 					Code:    output.CodeUpgradeCheckFailed,
-					Message: fmt.Sprintf("release %s has no asset for %s/%s", m.Version, runtime.GOOS, runtime.GOARCH),
+					Message: fmt.Sprintf("release %s has no unique executable asset for %s/%s", m.Version, runtime.GOOS, runtime.GOARCH),
 				})
 				return nil
 			}
@@ -133,7 +134,7 @@ func confirmUpgrade(cmd *cobra.Command, current, latest, exe string) bool {
 }
 
 func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.Asset, exe string) *output.ErrInfo {
-	url := strings.TrimRight(upgrade.DefaultBaseURL, "/") + "/" + asset.File
+	url := asset.DownloadURL(upgrade.DefaultBaseURL)
 	tmp, err := os.CreateTemp(filepath.Dir(exe), ".barista-upgrade-*")
 	if err != nil {
 		return &output.ErrInfo{Code: output.CodeUpgradeDownloadFailed, Message: err.Error()}
@@ -170,12 +171,12 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 			Hint:    "check your network connection and try again",
 		}
 	}
-	if e := upgrade.VerifySHA256(tmpPath, asset.SHA256); e != nil {
+	if e := upgrade.VerifySHA256(tmpPath, asset.SHA256()); e != nil {
 		return e
 	}
 	binPath := tmpPath + ".bin"
 	defer func() { _ = os.Remove(binPath) }()
-	if e := upgrade.ExtractEntry(tmpPath, asset.Format, asset.Entry, binPath); e != nil {
+	if e := upgrade.ExtractEntry(tmpPath, asset.ArchiveFormat(), asset.Entry, binPath); e != nil {
 		return e
 	}
 	return upgrade.ReplaceBinary(exe, binPath)

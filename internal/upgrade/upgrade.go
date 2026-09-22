@@ -20,27 +20,72 @@ import (
 const DefaultBaseURL = "https://github.com/ravenmk2/barista/releases/latest/download"
 
 type Asset struct {
-	File   string `json:"file"`
-	Format string `json:"format"`
-	Entry  string `json:"entry"`
-	SHA256 string `json:"sha256"`
-	Size   int64  `json:"size"`
+	Kind      string            `json:"kind"`
+	Platforms []string          `json:"platforms,omitempty"`
+	File      string            `json:"file"`
+	Entry     string            `json:"entry,omitempty"`
+	URL       string            `json:"url,omitempty"`
+	Hashes    map[string]string `json:"hashes"`
+	Size      int64             `json:"size"`
 }
 
 type Manifest struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	Version       string           `json:"version"`
-	PublishedAt   string           `json:"publishedAt,omitempty"`
-	Assets        map[string]Asset `json:"assets"`
+	SchemaVersion int     `json:"schemaVersion"`
+	Version       string  `json:"version"`
+	Commit        string  `json:"commit"`
+	PublishedAt   string  `json:"publishedAt,omitempty"`
+	Assets        []Asset `json:"assets"`
 }
 
-func (m *Manifest) Asset(goos, goarch string) (Asset, bool) {
-	a, ok := m.Assets[goos+"/"+goarch]
-	return a, ok
+// ExecutableAsset returns the executable archive for goos/goarch: the unique
+// asset whose kind starts with "executable-" and whose platforms contain the
+// pair. Zero matches yield false; multiple matches are a broken manifest.
+func (m *Manifest) ExecutableAsset(goos, goarch string) (Asset, bool) {
+	platform := goos + "/" + goarch
+	var found []Asset
+	for _, a := range m.Assets {
+		if !strings.HasPrefix(a.Kind, "executable-") {
+			continue
+		}
+		for _, p := range a.Platforms {
+			if p == platform {
+				found = append(found, a)
+				break
+			}
+		}
+	}
+	if len(found) != 1 {
+		return Asset{}, false
+	}
+	return found[0], true
 }
+
+// ArchiveFormat derives the extractor format from the asset kind
+// (executable-zip → zip, executable-tgz → tar.gz).
+func (a Asset) ArchiveFormat() string {
+	switch strings.TrimPrefix(a.Kind, "executable-") {
+	case "zip":
+		return "zip"
+	case "tgz":
+		return "tar.gz"
+	}
+	return ""
+}
+
+// DownloadURL resolves where to fetch the asset: the absolute url field when
+// set (mirror copies), otherwise baseURL + file.
+func (a Asset) DownloadURL(baseURL string) string {
+	if a.URL != "" {
+		return a.URL
+	}
+	return strings.TrimRight(baseURL, "/") + "/" + a.File
+}
+
+// SHA256 returns the required sha256 hash of the asset.
+func (a Asset) SHA256() string { return a.Hashes["sha256"] }
 
 // FetchManifest downloads and validates the release manifest from
-// baseURL (a directory URL whose manifest.json asset is fetched).
+// baseURL (a directory URL whose release.json asset is fetched).
 func FetchManifest(ctx context.Context, baseURL string) (*Manifest, *output.ErrInfo) {
 	tmp, err := os.CreateTemp("", "barista-manifest-*.json")
 	if err != nil {
@@ -48,7 +93,7 @@ func FetchManifest(ctx context.Context, baseURL string) (*Manifest, *output.ErrI
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	_ = tmp.Close()
-	url := strings.TrimRight(baseURL, "/") + "/manifest.json"
+	url := strings.TrimRight(baseURL, "/") + "/release.json"
 	if err := download.Download(ctx, url, tmp.Name(), nil); err != nil {
 		return nil, &output.ErrInfo{
 			Code:    output.CodeUpgradeCheckFailed,
@@ -68,16 +113,25 @@ func ParseManifest(data []byte) (*Manifest, *output.ErrInfo) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: fmt.Sprintf("invalid manifest: %v", err)}
 	}
-	if m.SchemaVersion != 2 || m.Version == "" || len(m.Assets) == 0 {
-		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: "manifest is missing schemaVersion 2, version or assets"}
+	if m.SchemaVersion != 2 || m.Version == "" || m.Commit == "" || len(m.Assets) == 0 {
+		return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: "manifest is missing schemaVersion 2, version, commit or assets"}
 	}
-	for platform, a := range m.Assets {
+	for i := range m.Assets {
+		a := &m.Assets[i]
+		if !strings.HasPrefix(a.Kind, "executable-") {
+			continue
+		}
 		if a.Entry == "" {
 			a.Entry = "barista"
-			if strings.HasPrefix(platform, "windows/") {
-				a.Entry = "barista.exe"
+			for _, p := range a.Platforms {
+				if strings.HasPrefix(p, "windows/") {
+					a.Entry = "barista.exe"
+					break
+				}
 			}
-			m.Assets[platform] = a
+		}
+		if a.Hashes["sha256"] == "" {
+			return nil, &output.ErrInfo{Code: output.CodeUpgradeCheckFailed, Message: fmt.Sprintf("asset %s is missing hashes.sha256", a.File)}
 		}
 	}
 	return &m, nil

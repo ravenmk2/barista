@@ -11,7 +11,7 @@ func TestList(t *testing.T) {
 	if len(entries) != 8 {
 		t.Fatalf("List() returned %d entries, want 8", len(entries))
 	}
-	want := []string{"config", "gradle", "jdk", "manifest", "maven", "node", "properties", "repos"}
+	want := []string{"config", "gradle", "jdk", "maven", "node", "properties", "release", "repos"}
 	for i, name := range want {
 		if entries[i].Name != name {
 			t.Fatalf("List()[%d].Name = %q, want %q (sorted)", i, entries[i].Name, name)
@@ -28,7 +28,7 @@ func TestList(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	for _, name := range []string{"repos", "config", "jdk", "maven", "gradle", "node", "properties", "manifest"} {
+	for _, name := range []string{"repos", "config", "jdk", "maven", "gradle", "node", "properties", "release"} {
 		e, err := Get(name)
 		if err != nil {
 			t.Fatalf("Get(%q): %v", name, err)

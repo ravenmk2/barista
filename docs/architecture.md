@@ -23,7 +23,7 @@ internal/
   output/           Result 类型 + text / json / tui renderer + 高亮（color.go）+ TTY 判定 + 下载进度格式化（progress.go）
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
 docs/               文档（架构契约、命令参考、design/ 域详细设计）
-scripts/            release 清单生成（genmanifest.py）、JDK 嵌入数据生成（gendistros.py）
+scripts/            release 清单生成（gen-release.py）、JDK 嵌入数据生成（gen-distros.py）
 .github/workflows/  test.yml（CI）/ release.yml（发布）
 dist/               构建产物（build.sh 输出）
 build.sh            交叉编译六平台（--install 装到 ~/.local/bin）

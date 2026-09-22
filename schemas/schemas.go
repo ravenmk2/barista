@@ -27,8 +27,8 @@ var nodeSchema []byte
 //go:embed properties.schema.json
 var propertiesSchema []byte
 
-//go:embed manifest.schema.json
-var manifestSchema []byte
+//go:embed release.schema.json
+var releaseSchema []byte
 
 type Entry struct {
 	Name        string
@@ -72,10 +72,10 @@ var entries = map[string]Entry{
 		Description: "workspace execution preferences (<workspace>/.barista/properties.json)",
 		Raw:         propertiesSchema,
 	},
-	"manifest": {
-		Name:        "manifest",
-		Description: "release manifest (GitHub release asset manifest.json, consumed by barista upgrade)",
-		Raw:         manifestSchema,
+	"release": {
+		Name:        "release",
+		Description: "release manifest (GitHub release asset release.json, consumed by barista upgrade)",
+		Raw:         releaseSchema,
 	},
 }
 

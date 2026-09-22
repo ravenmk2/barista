@@ -2,7 +2,7 @@
 """Regenerate internal/jdk/distros.json — pinned, non-expiring JDK download
 URLs for distros resolved through embedded data instead of runtime API calls.
 
-Usage: python3 scripts/gendistros.py  (run from anywhere; writes into the repo)
+Usage: python3 scripts/gen-distros.py  (run from anywhere; writes into the repo)
 """
 import concurrent.futures
 import datetime
@@ -29,7 +29,7 @@ LTS_MAJORS = {8, 11, 17, 21, 25}
 
 
 def get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "barista-gendistros"})
+    req = urllib.request.Request(url, headers={"User-Agent": "barista-gen-distros"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.load(resp)
 
@@ -83,7 +83,7 @@ GRAALVM_PLATFORM = {  # (asset os, asset arch) -> "goos/goarch"
 
 
 def get_text(url, timeout=30):
-    req = urllib.request.Request(url, headers={"User-Agent": "barista-gendistros"})
+    req = urllib.request.Request(url, headers={"User-Agent": "barista-gen-distros"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read().decode()
 

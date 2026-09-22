@@ -36,7 +36,7 @@
 - 通过 Provider 接口解析发行版下载地址：
   - temurin → Adoptium API
   - microsoft / corretto → permalink 直链，ArchiveURL 纯拼 URL
-  - zulu / graalvm → `embeddedProvider` 读 go:embed 的 `internal/jdk/distros.json`（由 `scripts/gendistros.py` 定期刷新，URL 钉死无有效期、运行期零 API 调用）
+  - zulu / graalvm → `embeddedProvider` 读 go:embed 的 `internal/jdk/distros.json`（由 `scripts/gen-distros.py` 定期刷新，URL 钉死无有效期、运行期零 API 调用）
 - 下载镜像（config `download.mirror` / `jdk.download.mirror` 或 `--mirror` flag 显式覆盖，详见 [mirror.md](mirror.md)）：仅 temurin 生效；镜像 URL 经官方 Adoptium API assets 查询解析文件名与 sha256 后拼 `<base>/<major>/jdk/<arch>/<os>/<filename>`，下载失败自动回退官方源一次（`WithFallback`，回退时 stderr 提示完整官方 URL），镜像路径按 API sha256 校验；asset 解析失败（含 API 未返回 checksum，视为不可校验而拒绝）降级为官方 URL + stderr 提示，降级路径 detail 不带 `mirror`。JSON detail 带 `downloadUrl`（实际使用 URL）与 `mirror`（配置的原始值，仅镜像生效时）
 - 下载骨架：断点续传（Range 头）+ 指数退避重试（默认 10 次，`--attempts` 可覆盖，4xx 不重试）；TTY 下 stderr 渲染进度条（百分比 / 速度 / ETA）
 - 实现 `ChecksumProvider` 的 provider（graalvm 嵌入了 sha256 钉值）下载后先校验 sha256，不符报 JDK_CHECKSUM_MISMATCH

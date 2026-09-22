@@ -128,8 +128,8 @@ func TestSchemaNames(t *testing.T) {
 	if len(names) != 8 {
 		t.Fatalf("want 8 schema candidates, got %v", names)
 	}
-	if !strings.Contains(strings.Join(names, "\n"), "manifest\t") {
-		t.Errorf("manifest missing in %v", names)
+	if !strings.Contains(strings.Join(names, "\n"), "release\t") {
+		t.Errorf("release missing in %v", names)
 	}
 }
 

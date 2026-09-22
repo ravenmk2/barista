@@ -18,10 +18,12 @@ import (
 const validManifest = `{
   "schemaVersion": 2,
   "version": "v0.3.0",
-  "assets": {
-    "windows/amd64": {"file": "barista-v0.3.0-windows-amd64.zip", "format": "zip", "entry": "barista.exe", "sha256": "abc", "size": 10},
-    "linux/amd64": {"file": "barista-v0.3.0-linux-amd64.tar.gz", "format": "tar.gz", "entry": "barista", "sha256": "def", "size": 10}
-  }
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "assets": [
+    {"kind": "executable-zip", "platforms": ["windows/amd64"], "file": "barista-v0.3.0-windows-amd64.zip", "entry": "barista.exe", "hashes": {"sha256": "abc"}, "size": 10},
+    {"kind": "executable-tgz", "platforms": ["linux/amd64"], "file": "barista-v0.3.0-linux-amd64.tar.gz", "entry": "barista", "hashes": {"sha256": "def"}, "size": 10},
+    {"kind": "checksums", "file": "checksums.txt", "hashes": {"sha256": "999"}, "size": 5}
+  ]
 }`
 
 func TestParseManifest(t *testing.T) {
@@ -29,44 +31,74 @@ func TestParseManifest(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if m.Version != "v0.3.0" {
-		t.Errorf("got version %q", m.Version)
+	if m.Version != "v0.3.0" || m.Commit != "0123456789abcdef0123456789abcdef01234567" {
+		t.Errorf("got version %q commit %q", m.Version, m.Commit)
 	}
-	a, ok := m.Asset("windows", "amd64")
-	if !ok || a.File != "barista-v0.3.0-windows-amd64.zip" || a.Format != "zip" || a.Entry != "barista.exe" {
+	a, ok := m.ExecutableAsset("windows", "amd64")
+	if !ok || a.File != "barista-v0.3.0-windows-amd64.zip" || a.Kind != "executable-zip" || a.Entry != "barista.exe" || a.SHA256() != "abc" {
 		t.Errorf("asset lookup failed: %+v", a)
 	}
-	if _, ok := m.Asset("darwin", "arm64"); ok {
+	if _, ok := m.ExecutableAsset("darwin", "arm64"); ok {
 		t.Error("missing asset should not be found")
 	}
 }
 
-func TestParseManifestEntryDefault(t *testing.T) {
+func TestExecutableAssetDuplicate(t *testing.T) {
 	m, e := ParseManifest([]byte(`{
-	  "schemaVersion": 2,
-	  "version": "v0.3.0",
-	  "assets": {
-	    "windows/amd64": {"file": "a.zip", "format": "zip", "sha256": "abc", "size": 10},
-	    "linux/arm64": {"file": "a.tar.gz", "format": "tar.gz", "sha256": "def", "size": 10}
-	  }
+	  "schemaVersion": 2, "version": "v1", "commit": "c",
+	  "assets": [
+	    {"kind": "executable-zip", "platforms": ["linux/amd64"], "file": "a.zip", "hashes": {"sha256": "x"}, "size": 1},
+	    {"kind": "executable-tgz", "platforms": ["linux/amd64"], "file": "a.tar.gz", "hashes": {"sha256": "y"}, "size": 1}
+	  ]
 	}`))
 	if e != nil {
 		t.Fatal(e)
 	}
-	if a, _ := m.Asset("windows", "amd64"); a.Entry != "barista.exe" {
-		t.Errorf("windows default entry = %q", a.Entry)
+	if _, ok := m.ExecutableAsset("linux", "amd64"); ok {
+		t.Error("two executable assets for one platform must not resolve")
 	}
-	if a, _ := m.Asset("linux", "arm64"); a.Entry != "barista" {
-		t.Errorf("linux default entry = %q", a.Entry)
+}
+
+func TestExecutableAssetDefaultsAndFormat(t *testing.T) {
+	m, e := ParseManifest([]byte(`{
+	  "schemaVersion": 2, "version": "v1", "commit": "c",
+	  "assets": [
+	    {"kind": "executable-zip", "platforms": ["windows/amd64"], "file": "a.zip", "hashes": {"sha256": "x"}, "size": 1},
+	    {"kind": "executable-tgz", "platforms": ["linux/arm64"], "file": "a.tar.gz", "hashes": {"sha256": "y"}, "size": 1}
+	  ]
+	}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	wa, _ := m.ExecutableAsset("windows", "amd64")
+	if wa.Entry != "barista.exe" || wa.ArchiveFormat() != "zip" {
+		t.Errorf("windows asset: %+v", wa)
+	}
+	la, _ := m.ExecutableAsset("linux", "arm64")
+	if la.Entry != "barista" || la.ArchiveFormat() != "tar.gz" {
+		t.Errorf("linux asset: %+v", la)
+	}
+}
+
+func TestAssetDownloadURL(t *testing.T) {
+	a := Asset{File: "f.zip"}
+	if got := a.DownloadURL("https://example.com/dl/"); got != "https://example.com/dl/f.zip" {
+		t.Errorf("fallback: %q", got)
+	}
+	a.URL = "https://mirror.example.com/f.zip"
+	if got := a.DownloadURL("https://example.com/dl"); got != "https://mirror.example.com/f.zip" {
+		t.Errorf("mirror url: %q", got)
 	}
 }
 
 func TestParseManifestInvalid(t *testing.T) {
 	for _, data := range []string{
 		"not json",
-		`{"schemaVersion": 1, "version": "v1", "assets": {"a/b": {}}}`,
-		`{"schemaVersion": 2, "assets": {"a/b": {}}}`,
-		`{"schemaVersion": 2, "version": "v1"}`,
+		`{"schemaVersion": 1, "version": "v1", "commit": "c", "assets": [{"kind": "executable-zip", "file": "a", "hashes": {"sha256": "x"}, "size": 1}]}`,
+		`{"schemaVersion": 2, "commit": "c", "assets": [{"kind": "checksums", "file": "a", "hashes": {"sha256": "x"}, "size": 1}]}`,
+		`{"schemaVersion": 2, "version": "v1", "assets": [{"kind": "checksums", "file": "a", "hashes": {"sha256": "x"}, "size": 1}]}`,
+		`{"schemaVersion": 2, "version": "v1", "commit": "c"}`,
+		`{"schemaVersion": 2, "version": "v1", "commit": "c", "assets": [{"kind": "executable-zip", "platforms": ["linux/amd64"], "file": "a", "size": 1}]}`,
 	} {
 		if _, e := ParseManifest([]byte(data)); e == nil || e.Code != output.CodeUpgradeCheckFailed {
 			t.Errorf("%s: want UPGRADE_CHECK_FAILED, got %v", data, e)
@@ -112,7 +144,7 @@ func TestVerifySHA256(t *testing.T) {
 
 func TestFetchManifest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/manifest.json" {
+		if r.URL.Path != "/release.json" {
 			http.NotFound(w, r)
 			return
 		}

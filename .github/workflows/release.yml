@@ -37,10 +37,10 @@ jobs:
         run: sha256sum * > checksums.txt
 
       - name: Generate manifest
-        run: python3 scripts/genmanifest.py dist "${GITHUB_REF_NAME}" dist/manifest.json
+        run: python3 scripts/gen-release.py dist "${GITHUB_REF_NAME}" dist/release.json --commit "${GITHUB_SHA}"
 
       - name: Validate manifest
-        run: go run ./cmd/barista schema validate manifest dist/manifest.json
+        run: go run ./cmd/barista schema validate release dist/release.json
 
       - name: Publish release
         env:
