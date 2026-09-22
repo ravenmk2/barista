@@ -34,7 +34,7 @@ fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--v
 - text：非 TTY 逐条输出；TTY 下 git 命令组渲染实时面板
 - JSON：`--json` 时输出 envelope，含 `schemaVersion: 1`、`command`、`success`、`results`；结果顺序与声明顺序一致
 - 错误：stderr 输出 `barista: CODE: message`（可带 `hint:` 行），`--json` 时 stdout 另出 error envelope
-- 例外：`jdk`/`maven`/`gradle`/`node` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven/gradle 的 `path`/`home` 与各域 `which --pathonly` 输出纯路径，无尾随换行
+- 例外：`jdk`/`maven`/`gradle`/`node` 的 `which`（非 `--pathonly`）恒输出 JSON envelope，不受 `--json` 影响；`schema` 组只有 `show`（schema 原文）与 `validate`（校验结果）恒输出 JSON（`list` 与裸 `barista schema` 输出纯文本列表），其错误格式为 `barista: <msg>`（无 CODE、无 hint）；jdk/maven/gradle/node 的 `path`/`home` 与 `which --pathonly` 输出纯路径，无尾随换行
 - jdk/maven/gradle/node 单目标命令（add/remove/set-default/set-jdk/use/install/uninstall）：text 模式下结果级失败以 `failed <name>: CODE: message`（可带 `hint:` 行）输出到 stderr；`--json` 时失败只体现在 envelope 的 results 中
 
 ### 退出码
@@ -68,8 +68,8 @@ barista completion powershell >> $PROFILE
 - jdk 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + major；`remove`/`uninstall` 补 name；`set-default` 第一段补 major、第二段补 name
 - maven 组位置参数：`which` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
 - gradle 组位置参数：`which`/`path`/`home` 补 name + version；`remove`/`uninstall`/`set-default` 补 name；`set-jdk` 补 JDK spec
-- node 组位置参数：`which`/`env`/`use` 补 name + version；`remove`/`uninstall`/`set-default` 补 name
-- `mvn --jdk` / `java --jdk` / `gradle --jdk`：JDK spec
+- node 组位置参数：`which`/`path`/`home`/`env`/`use` 补 name + version；`remove`/`uninstall`/`set-default` 补 name
+- `mvn --jdk` / `java --jdk` / `gradle --jdk`：JDK spec；`node --node` / `npm --node` / `npx --node`：Node.js spec
 - `jdk env --shell` / `node env --shell`：sh/cmd/powershell/pwsh/ps（bash/zsh 是输入别名，不提供为补全候选）
 - `jdk download --os` / `--arch`：linux/darwin/windows 与 amd64/arm64 静态枚举；`--output`：目录
 - `schema show` / `validate` 第一段：schema 名；`init [path]` 与 `repo add --path`：目录；`repo remove` 第一段：清单中的仓库名
@@ -453,9 +453,11 @@ barista gradle -- build test
 barista gradle --jdk 17 --dry-run -- -q assemble
 ```
 
-## node — Node.js 注册表管理
+## node — Node.js 注册表管理与执行器
 
-注册表为 user 级 `~/.barista/node.json`。托管安装目录默认 `~/.barista/toolchains/node/`（node.json 顶层 `installDir` 字段，用 `barista node set-install-dir` 设置）。裸 `barista node` 显示帮助（node 组不是执行器）；`use` 是 node 组唯一需要工作区的命令。
+注册表为 user 级 `~/.barista/node.json`。托管安装目录默认 `~/.barista/toolchains/node/`（node.json 顶层 `installDir` 字段，用 `barista node set-install-dir` 设置）。`use` 是 node 组唯一需要工作区的管理命令。
+
+组根本身是执行器：`barista node [flags] -- <node args...>` 在当前目录运行 node；下列管理子命令与透传参数同名时子命令优先（如 `barista node install 22` 走 install 子命令）。
 
 ### 子命令
 
@@ -466,6 +468,7 @@ barista gradle --jdk 17 --dry-run -- -q assemble
 | `available`              | 列出 nodejs.org 上可下载的版本（`--all` 列全部历史版本）                   |
 | `list`                   | 列出已注册 Node.js（别名 `ls`）                                            |
 | `which [name\|version]`  | 按名或版本解析（版本逐级放宽，`v` 前缀可省略）；不传参数取生效默认（恒输出 JSON） |
+| `path` / `home`          | 只打印 node home 路径（`which --pathonly` 的快捷方式）                     |
 | `env <name\|version>`    | 打印 NODE_HOME/PATH 导出语句（`--shell sh\|cmd\|powershell`，缺省自动检测当前 shell，供 eval / CI 消费） |
 | `set-default <name>`     | 设置 user 级默认 Node.js（workspace 级覆盖用 `barista node use`）          |
 | `set-install-dir <path>` | 设置托管安装根目录（写入 node.json `installDir`；`--reset` 恢复内置默认）  |
@@ -473,8 +476,34 @@ barista gradle --jdk 17 --dry-run -- -q assemble
 | `remove <name>`          | 仅注销，保留磁盘文件（若为 user 级 default 一并清除）                      |
 | `uninstall <name>`       | 删除 managed 安装并注销（同样清除指向它的 user 级 default）                |
 
+### 执行器用法
+
+```txt
+barista node [flags] -- <node args...>
+```
+
+| flag        | 说明                                              |
+| ----------- | ------------------------------------------------- |
+| `--node`    | Node.js spec（注册名或版本），覆盖所有配置层级    |
+| `--dry-run` | 打印解析出的 Node.js 与完整命令行，不执行         |
+
+- `--` 后参数原样透传；缺 `--` 直接给参数报 `USAGE_ERROR`（exit 2）；无参数且未给 flag 时显示帮助
+
+### 解析链（高 → 低）
+
+- Node.js 安装：`--node` > 版本文件（`.node-version` > `.nvmrc`）> repo `properties["node"]` > workspace properties.json `node` > user node.json default > ambient（PATH 查找 node）
+- 显式级别（含文件声明）解析失败响亮报 `NODE_NOT_FOUND`（exit 2，message 带来源）；ambient 也落空同样 `NODE_NOT_FOUND`
+
+### 文件检测（`.node-version` 与 `.nvmrc`）
+
+- 从 cwd 逐级上爬查找，边界为最近的 `.git` 检出根（不依赖 repos.json 注册；无检出根时边界为 workspace 根，workspace 外只查 cwd 单点）
+- `.node-version` 整体优先于 `.nvmrc`（各自上爬就近取）；内容取第一个非空、非 `#` 注释行，剥 `v` 前缀（`22` / `v22.14.0` 均可）
+- 退出开关：workspace properties.json 键 `detect.files=false` 关闭文件检测（与 mvn / java / gradle 共用）
+
 ### 要点
 
+- node 是原生二进制直接执行（Windows 也不经 cmd 包装）；命中注册安装时子进程注入 `NODE_HOME=<home>` 且安装 bin 目录前置 PATH（Windows 为安装根，Unix 为 `<home>/bin`）；node 子进程非零退出时 barista exit 1；启动失败报 `NODE_EXEC_FAILED`（exit 2）
+- `--dry-run` 的 `--json` 输出 detail 含 node / args / command 及可选的 workspace / repo；node 来源为文件的层级带 `file` 子键
 - add / install 的自动命名为 `node-<version>`（完整版本号不带 `v`，如 `node-22.14.0`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
 - install：先经 available 列表解析版本（`22` / `v22.14.0` 均可），无完全匹配按数字段前缀放宽取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`；detail 恒带 `downloadUrl` 记录实际下载来源，镜像生效时另带 `mirror`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（official / 预设名 / 自定义 `https://` 基址，`official` 临时禁用镜像）；sha256 取自官方 `SHASUMS256.txt` 对应资产行，不匹配报 `NODE_CHECKSUM_MISMATCH`；解压后 probe 校验 `node --version` 与目标版本一致，失败清理目录；不支持的平台报 `NODE_UNSUPPORTED_PLATFORM`
 - available：数据源 `nodejs.org/dist/index.json`，按版本降序；默认只列六个最新 major 线各自的最新版本；tags 标记 latest / lts:<代号> / installed；联网失败报 `NODE_AVAILABLE_FAILED`
@@ -490,6 +519,31 @@ barista node install 22
 barista node set-default node-22.14.0
 barista node use 22
 barista node env node-22.14.0 --shell sh
+barista node -- --version
+barista node --node 22 --dry-run -- server.js
+```
+
+## npm / npx — 工作区感知的 npm / npx 执行器
+
+在当前目录用解析出的 Node.js 运行 npm / npx，`--` 之后的参数原样透传。两个命令互为镜像，只做执行器，不带管理子命令。
+
+```txt
+barista npm [flags] -- <npm args...>
+barista npx [flags] -- <npx args...>
+```
+
+| flag        | 说明                                              |
+| ----------- | ------------------------------------------------- |
+| `--node`    | Node.js spec（注册名或版本），覆盖所有配置层级    |
+| `--dry-run` | 打印解析出的 Node.js 与完整命令行，不执行         |
+
+- Node.js 解析链、文件检测（`.node-version` / `.nvmrc`）、`detect.files` 开关、环境注入（`NODE_HOME` + PATH 前置）与 exit code 契约同 `barista node` 执行器
+- 入口二进制：Unix 为 `<home>/bin/npm` / `bin/npx`；Windows 为 `<home>/npm.cmd` / `npx.cmd`，经 `cmd /c` 启动（.cmd shim 必须走 cmd 包装）；ambient 时 PATH 查找 npm / npx（命中的 .cmd/.bat 同样走 cmd /c）
+- 缺 `--` 直接给参数报 `USAGE_ERROR`（exit 2）；启动失败报 `NODE_EXEC_FAILED`（exit 2）
+
+```bash
+barista npm -- install
+barista npx --node 22 -- vite --version
 ```
 
 ## doctor — 环境体检
@@ -507,7 +561,7 @@ barista doctor [--deep]
 ### 检查项
 
 - user 级：git 在 PATH；uv 可用（`uvAvailable`：PATH 命中报 ok；仅 `~/.local/bin` 存在或完全缺失均报 skipped，uv 是可选工具）；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` / `node.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Node.js 条目二进制存在（Windows 根目录 `node.exe`，Unix `bin/node`）、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
-- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` / `node` 与 per-repo properties 的 `jdk` / `maven.launch` / `node`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
+- workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` / `node` 与 per-repo properties 的 `jdk` / `maven.launch` / `node`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）、`.node-version` / `.nvmrc`（`nodeVersionFile`：`.node-version` 优先于 `.nvmrc`；存在则校验可解析且注册表可解析，失败 hint 指向 `barista node install <version>`）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
 
 ### 要点
 

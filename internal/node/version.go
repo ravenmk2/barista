@@ -31,3 +31,20 @@ func NameFor(s string) string {
 	}
 	return "node-" + v
 }
+
+// ParseVersionFile extracts the version declared by a .node-version/.nvmrc
+// file: the first non-empty, non-comment line, with an optional leading v.
+func ParseVersionFile(data string) (string, bool) {
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		v, err := NormalizeVersion(line)
+		if err != nil {
+			return "", false
+		}
+		return v, true
+	}
+	return "", false
+}

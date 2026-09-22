@@ -7,7 +7,7 @@ barista 的全局架构契约，改动代码前必读。本文件只写跨域关
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ node/ doctor/ upgrade/ uv/）+ schema 命令
+  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ node/ npm/ doctor/ upgrade/ uv/）+ schema 命令
   workspace/        工作区发现与 .barista/ 各文件读写（repos.json / config.json / properties.json）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析
   deps/             依赖图域：建图、环检测、构建层级（纯函数）
@@ -84,8 +84,8 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 | [design/jdk.md](design/jdk.md) | jdk registry、probe、discover、install / download / available / uninstall |
 | [design/maven.md](design/maven.md) | maven registry、probe、版本解析、install、偏好分层 |
 | [design/gradle.md](design/gradle.md) | gradle registry、probe、available、install、偏好分层 |
-| [design/node.md](design/node.md) | node registry、probe、available、install、mirror、use/env、偏好分层 |
-| [design/executors.md](design/executors.md) | `barista mvn` / `barista java` / `barista gradle` 执行器、planExec、注入规则、启动模式 |
+| [design/node.md](design/node.md) | node registry、probe、available、install、mirror、执行器、use/env、偏好分层 |
+| [design/executors.md](design/executors.md) | `barista mvn` / `barista java` / `barista gradle` / `barista node` / `barista npm` / `barista npx` 执行器、planExec、注入规则、启动模式 |
 | [design/doctor.md](design/doctor.md) | doctor 体检项与执行模型 |
 | [design/uv.md](design/uv.md) | uv 轻量安装器（无注册表，Python 委托 uv 自身） |
 | [design/upgrade.md](design/upgrade.md) | 自更新流程、manifest、平台替换 |

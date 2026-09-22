@@ -15,21 +15,21 @@
 - git on PATH
 - uv 可用（uvAvailable：PATH 命中 ok；仅 ~/.local/bin 存在或完全缺失均 skipped，可选工具不算 failed）
 - JAVA_HOME 有效性
-- config / jdk / maven / gradle registry 可解析性与引用完整性（defaults / default / jdk / installDir）
-- Maven / Gradle 条目版本用纯文件系统 probe 即时比对
+- config / jdk / maven / gradle / node registry 可解析性与引用完整性（defaults / default / jdk / installDir）
+- Maven / Gradle 条目版本用纯文件系统 probe 即时比对；Node.js 条目浅查二进制存在（Windows 根目录 node.exe，Unix bin/node）
 
 机会主义加查 workspace 级（无 workspace 不报错）：
 
 - `.barista` 可加载
 - repo 检出存在
-- properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` 与 per-repo properties 的 `jdk` / `maven.launch` 可解析（无 per-repo `maven.default` / `gradle.default`）
+- properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` / `node` 与 per-repo properties 的 `jdk` / `maven.launch` / `node` 可解析（无 per-repo `maven.default` / `gradle.default`）
 - `settings.xml` 与 `settings-security.xml` 存在性；`.barista/gradle/` 下 `init.gradle` 与 `init.gradle.kts` 存在性（各自独立报告）
-- 逐 repo 浅查 `.java-version`、`maven-wrapper.properties` 与 `gradle-wrapper.properties` 的可解析性（wrapper 检查只看检出根，不上爬）
+- 逐 repo 浅查 `.java-version`、`.node-version` / `.nvmrc`（`.node-version` 优先）、`maven-wrapper.properties` 与 `gradle-wrapper.properties` 的可解析性（版本文件与 wrapper 检查只看检出根，不上爬）
 - repos.json `deps` 引用完整性（dangling 引用报 REPO_NOT_FOUND）
 
 `--deep` 追加：
 
-- JDK 重 probe：起 java 子进程比对注册版本
+- JDK 重 probe：起 java 子进程比对注册版本；Node.js 重 probe：起 node 子进程比对注册版本
 - repo origin 对清单 URL 的归一化比对
 
 ## 输出

@@ -1,8 +1,8 @@
-# 执行器详细设计（mvn / java / gradle）
+# 执行器详细设计（mvn / java / gradle / node / npm / npx）
 
-> 全局契约见 [../architecture.md](../architecture.md)；本文档是执行器域（`cli/mvn`、`cli/java`、`cli/gradle` 组根及 maven 启动模式）的详细设计，改动该域前必读。
+> 全局契约见 [../architecture.md](../architecture.md)；本文档是执行器域（`cli/mvn`、`cli/java`、`cli/gradle` 组根、`cli/node` 组根、`cli/npm` 的 npm/npx 及 maven 启动模式）的详细设计，改动该域前必读。
 
-`barista mvn`、`barista java` 与 `barista gradle`（组根）是**执行器**而非管理命令：不走 runner / Result 契约，stdin / stdout / stderr 直接挂父进程（流式透传，无 TUI / 渲染层）。
+`barista mvn`、`barista java`、`barista gradle`（组根）、`barista node`（组根）、`barista npm` 与 `barista npx` 是**执行器**而非管理命令：不走 runner / Result 契约，stdin / stdout / stderr 直接挂父进程（流式透传，无 TUI / 渲染层）。
 
 ## barista mvn
 
@@ -52,6 +52,19 @@ gradle 命令组的组根本身是执行器：`barista gradle [flags] -- <gradle
 
 - `.barista/gradle/init.gradle` 与 `.barista/gradle/init.gradle.kts` 存在即各注入一个 `-I`（零配置 init script）；**透传参数已含 `-I` / `--init-script` 时整体跳过**（用户显式优先）
 - workspace property `gradle.user.home` 注入 `--gradle-user-home`（相对路径锚定 workspace root，支持 `~` 展开）；**透传已含 `-g` / `--gradle-user-home` / `-Dgradle.user.home` 时跳过**
+
+## barista node（组根执行器）、barista npm、barista npx
+
+node 命令组的组根本身是执行器（同 gradle 的子命令优先契约）；`barista npm` / `barista npx` 是独立根命令（cli/npm 薄壳，无管理子命令，照 cli/java 形态），三者共用 cli/node 的同一套纯函数 `planExec`（planInput 带 `tool` 字段），仅入口二进制不同。
+
+- 用法：`barista node|npm|npx [flags] -- <args>`，`--` 后参数原样透传；缺 `--` 直接给参数报 USAGE_ERROR（exit 2）；node 组根无参数且未给 flag 时显示帮助（npm/npx 无此分支，同 java）
+- Node 安装解析链：`--node > 版本文件（.node-version > .nvmrc）> repo properties["node"] > workspace node > node.json default > ambient（PATH 查找同名二进制）`
+  - 显式指定的任一级（含文件声明）解析失败响亮报 NODE_NOT_FOUND（exit 2，message 带来源；文件级带文件名）；ambient 落空同样 NODE_NOT_FOUND
+- 文件检测在 buildPlan 装配层完成并以 planInput 字段注入；查找边界为最近 `.git` 检出根（`workspace.FindGitRoot`，不依赖 repos.json 注册）；`.node-version` 整体优先于 `.nvmrc`，各自上爬就近；内容取第一个非空非注释行、剥 `v` 前缀（`node.ParseVersionFile`）；workspace properties 键 `detect.files=false` 整体关闭（与 mvn / java / gradle 共用）
+- 命中注册安装时：node 直接 exec（原生二进制，Windows 不经 cmd 包装）；npm/npx 在 Windows 经 `cmd /c` 启动 `<home>/npm.cmd` / `npx.cmd`（.cmd shim 必须走 cmd，同 gradle.bat 先例）；ambient 命中的 .cmd/.bat 同样 cmd /c
+- 子进程环境注入 `NODE_HOME=<home>` 且安装 bin 目录前置 PATH（Windows 为安装根，Unix 为 `<home>/bin`）；ambient 不动环境
+- 子进程非零退出 → exit 1；启动失败 → NODE_EXEC_FAILED（exit 2）
+- `--json` 只影响 exec 前的错误（ErrorEnvelope）与 `--dry-run` 输出；`--dry-run` 的 JSON detail 键：`node` / `args` / `command`，按解析结果可选 `workspace` / `repo`；`node` 来源为文件的层级带 `file` 子键（text 输出同样体现）
 
 ## mvn 启动模式（launch.go）
 

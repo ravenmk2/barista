@@ -24,16 +24,32 @@ var execNodeVersion = func(bin string) ([]byte, error) {
 // BinaryPath returns the node executable inside an installation home: the
 // distribution root on Windows, bin/node elsewhere.
 func BinaryPath(home string) string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(home, "node.exe")
+	bin, _ := ToolBinaryPath(runtime.GOOS, home, "node")
+	return bin
+}
+
+// ToolBinaryPath returns the executable for tool ("node", "npm", "npx")
+// inside an installation home, and whether it must be started via cmd /c
+// (Windows .cmd shims; node itself is a native binary everywhere).
+func ToolBinaryPath(goos, home, tool string) (bin string, viaCmd bool) {
+	if goos == "windows" {
+		if tool == "node" {
+			return filepath.Join(home, "node.exe"), false
+		}
+		return filepath.Join(home, tool+".cmd"), true
 	}
-	return filepath.Join(home, "bin", "node")
+	return filepath.Join(home, "bin", tool), false
 }
 
 // BinDir returns the PATH entry for an installation home: the distribution
 // root on Windows (node.exe/npm.cmd live there), bin/ elsewhere.
 func BinDir(home string) string {
-	if runtime.GOOS == "windows" {
+	return BinDirFor(runtime.GOOS, home)
+}
+
+// BinDirFor is BinDir parameterized on the target platform.
+func BinDirFor(goos, home string) string {
+	if goos == "windows" {
 		return home
 	}
 	return filepath.Join(home, "bin")

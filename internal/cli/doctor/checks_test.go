@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"barista/internal/gradle"
@@ -312,6 +313,47 @@ func TestCheckNodeSpec(t *testing.T) {
 	r := checkNodeSpec("workspace", "properties.json", "24", "workspace properties", nodeReg)
 	if r.Status != output.StatusFailed || r.Error.Code != output.CodeNodeNotFound {
 		t.Errorf("want failed NODE_NOT_FOUND, got %v", r)
+	}
+}
+
+func TestCheckNodeVersionFile(t *testing.T) {
+	root := t.TempDir()
+	ws := &workspace.Workspace{Root: root, Repos: &workspace.ReposFile{}}
+	repo := workspace.Repo{Name: "app", Path: "repos/app"}
+	nodeReg := &node.Registry{Installations: []node.Entry{{Name: "node-22.14.0", Version: "22.14.0", Path: "/n/22"}}}
+	dir := filepath.Join(root, "repos", "app")
+
+	if r := checkNodeVersionFile(ws, repo, nodeReg); r.Status != output.StatusSkipped {
+		t.Errorf("absent files want skipped, got %s", r.Status)
+	}
+
+	write := func(name, content string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write(".nvmrc", "# lts\n\nv22\n")
+	if r := checkNodeVersionFile(ws, repo, nodeReg); r.Status != output.StatusOK {
+		t.Errorf("resolvable .nvmrc want ok, got %v", r.Error)
+	}
+
+	write(".node-version", "24.0.0\n")
+	r := checkNodeVersionFile(ws, repo, nodeReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeNodeNotFound {
+		t.Errorf("unregistered .node-version want failed NODE_NOT_FOUND, got %v", r)
+	}
+	if !strings.Contains(r.Error.Message, ".node-version") {
+		t.Errorf("message must name the file, got %q", r.Error.Message)
+	}
+
+	write(".node-version", "lts/*\n")
+	r = checkNodeVersionFile(ws, repo, nodeReg)
+	if r.Status != output.StatusFailed || r.Error.Code != output.CodeConfigError || r.Error.Hint == "" {
+		t.Errorf("unparseable .node-version want failed CONFIG_ERROR with hint, got %v", r)
 	}
 }
 

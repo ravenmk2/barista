@@ -13,6 +13,7 @@ import (
 	mavencli "barista/internal/cli/maven"
 	mvncli "barista/internal/cli/mvn"
 	nodecli "barista/internal/cli/node"
+	npmcli "barista/internal/cli/npm"
 	repocli "barista/internal/cli/repo"
 	upgradecli "barista/internal/cli/upgrade"
 	uvcli "barista/internal/cli/uv"
@@ -35,6 +36,8 @@ func NewRootCmd(version string) *cobra.Command {
 	root.AddCommand(javacli.NewCmd(&ExitCode))
 	root.AddCommand(gradlecli.NewCmd(&ExitCode))
 	root.AddCommand(nodecli.NewCmd(&ExitCode))
+	root.AddCommand(npmcli.NewNpmCmd(&ExitCode))
+	root.AddCommand(npmcli.NewNpxCmd(&ExitCode))
 	root.AddCommand(repocli.NewCmd(&ExitCode))
 	root.AddCommand(depscli.NewCmd(&ExitCode))
 	root.AddCommand(doctorcli.NewCmd(&ExitCode))

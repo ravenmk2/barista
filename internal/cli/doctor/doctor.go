@@ -207,6 +207,9 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 				add(checkNodeSpec("workspace", repo.Name, v, "repo properties", nodeReg))
 			}
 		}
+		for _, repo := range ws.Repos.Repos {
+			add(checkNodeVersionFile(ws, repo, nodeReg))
+		}
 	}
 	if v, has := ws.Props.String("maven.launch"); has && v != "" {
 		add(checkMavenLaunch("workspace", "properties.json", v, "workspace properties"))

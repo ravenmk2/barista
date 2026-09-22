@@ -74,3 +74,33 @@ func TestParseNodeVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestToolBinaryPath(t *testing.T) {
+	cases := []struct {
+		goos, home, tool string
+		wantBin          string
+		wantViaCmd       bool
+	}{
+		{"windows", `C:\nodes\22`, "node", filepath.Join(`C:\nodes\22`, "node.exe"), false},
+		{"windows", `C:\nodes\22`, "npm", filepath.Join(`C:\nodes\22`, "npm.cmd"), true},
+		{"windows", `C:\nodes\22`, "npx", filepath.Join(`C:\nodes\22`, "npx.cmd"), true},
+		{"linux", "/opt/node22", "node", filepath.Join("/opt/node22", "bin", "node"), false},
+		{"linux", "/opt/node22", "npm", filepath.Join("/opt/node22", "bin", "npm"), false},
+		{"darwin", "/opt/node22", "npx", filepath.Join("/opt/node22", "bin", "npx"), false},
+	}
+	for _, tc := range cases {
+		bin, viaCmd := ToolBinaryPath(tc.goos, tc.home, tc.tool)
+		if bin != tc.wantBin || viaCmd != tc.wantViaCmd {
+			t.Errorf("ToolBinaryPath(%q, %q, %q) = %q, %v; want %q, %v", tc.goos, tc.home, tc.tool, bin, viaCmd, tc.wantBin, tc.wantViaCmd)
+		}
+	}
+}
+
+func TestBinDirFor(t *testing.T) {
+	if got := BinDirFor("windows", `C:\nodes\22`); got != `C:\nodes\22` {
+		t.Errorf("windows BinDirFor = %q", got)
+	}
+	if got := BinDirFor("linux", "/opt/node22"); got != filepath.Join("/opt/node22", "bin") {
+		t.Errorf("linux BinDirFor = %q", got)
+	}
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/download"
 	"barista/internal/node"
 	"barista/internal/output"
@@ -20,9 +21,23 @@ var exitCode *int
 func NewCmd(exit *int) *cobra.Command {
 	exitCode = exit
 	cmd := &cobra.Command{
-		Use:   "node",
-		Short: "Manage registered Node.js installations",
+		Use:                   "node [flags] -- <node args...>",
+		Short:                 "Run Node.js with the workspace-aware environment, or manage Node.js installations",
+		DisableFlagsInUseLine: true,
+		Long: "Run node in the current directory. Arguments after \"--\" are passed through verbatim.\n" +
+			"Resolution (high to low): --node > .node-version/.nvmrc file > repo properties[\"node\"] > workspace node > user node.json default > ambient PATH.\n" +
+			"File detection can be disabled with the workspace property detect.files=false.\n" +
+			"When a registered installation is resolved, node runs directly (no cmd wrapper on Windows) and the child process gets NODE_HOME plus the installation bin dir prepended to PATH.\n" +
+			"Subcommand names win over passthrough arguments; the management subcommands are listed below.",
+		Example: `  barista node -- --version
+	  barista node --node 22 --dry-run -- server.js
+	  barista node install 22.14.0`,
+		Args: cobra.ArbitraryArgs,
+		RunE: runExec,
 	}
+	cmd.Flags().String("node", "", "Node.js spec (registry name or version) used to run node; overrides every config level")
+	_ = cmd.RegisterFlagCompletionFunc("node", comp.Fn(comp.NodeSpecs))
+	cmd.Flags().Bool("dry-run", false, "print the resolved Node.js and full command line without executing")
 	cmd.AddCommand(
 		listCmd(),
 		addCmd(),
@@ -30,6 +45,8 @@ func NewCmd(exit *int) *cobra.Command {
 		setDefaultCmd(),
 		setInstallDirCmd(),
 		whichCmd(),
+		pathCmd(),
+		homeCmd(),
 		installCmd(),
 		availableCmd(),
 		uninstallCmd(),

@@ -330,6 +330,32 @@ func checkNodeSpec(scope, subject, spec, howSet string, nodeReg *node.Registry) 
 	return ok(subject, scope, check, map[string]any{"node": spec, "via": howSet})
 }
 
+func checkNodeVersionFile(ws *workspace.Workspace, repo workspace.Repo, nodeReg *node.Registry) output.Result {
+	const check = "nodeVersionFile"
+	for _, name := range []string{".node-version", ".nvmrc"} {
+		p := filepath.Join(ws.AbsPath(repo), name)
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		version, parsed := node.ParseVersionFile(string(data))
+		if !parsed {
+			return failed(repo.Name, "workspace", check, output.CodeConfigError,
+				fmt.Sprintf("%s is not parseable", filepath.ToSlash(p)),
+				"write a version like 22 or v22.14.0 into "+name)
+		}
+		if _, _, e := nodeReg.Resolve(version); e != nil {
+			return failed(repo.Name, "workspace", check, output.CodeNodeNotFound,
+				fmt.Sprintf("node %q (from %s) is not registered", version, filepath.ToSlash(p)),
+				"run: barista node list; or install with: barista node install "+version)
+		}
+		return ok(repo.Name, "workspace", check, map[string]any{
+			"file": filepath.ToSlash(p), "node": version,
+		})
+	}
+	return skipped(repo.Name, "workspace", check, "no .node-version or .nvmrc")
+}
+
 func checkRepoCheckout(ctx context.Context, ws *workspace.Workspace, repo workspace.Repo, deep bool) output.Result {
 	const check = "repoCheckout"
 	dir := ws.AbsPath(repo)

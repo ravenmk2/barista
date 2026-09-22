@@ -35,6 +35,32 @@ func firstArg(args []string) string {
 	return ""
 }
 
+func pathCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:               "path [name|version]",
+		ValidArgsFunction: comp.Fn(comp.NodeSpecs),
+		Short:             "Print the resolved node home path (shortcut for: which --pathonly)",
+		Args:              cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runResolve(cmd, firstArg(args), true)
+			return nil
+		},
+	}
+}
+
+func homeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:               "home [name|version]",
+		ValidArgsFunction: comp.Fn(comp.NodeSpecs),
+		Short:             "Print the resolved node home path (same as: path)",
+		Args:              cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runResolve(cmd, firstArg(args), true)
+			return nil
+		},
+	}
+}
+
 func runResolve(cmd *cobra.Command, arg string, pathOnly bool) {
 	*exitCode = 0
 	reg, _, ok := loadRegistry(cmd)

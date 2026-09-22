@@ -69,6 +69,7 @@ const (
 	CodeNodeUninstallFailed     = "NODE_UNINSTALL_FAILED"
 	CodeNodeAvailableFailed     = "NODE_AVAILABLE_FAILED"
 	CodeNodeUnsupportedPlatform = "NODE_UNSUPPORTED_PLATFORM"
+	CodeNodeExecFailed          = "NODE_EXEC_FAILED"
 	CodeRepoRemoteMismatch      = "REPO_REMOTE_MISMATCH"
 	CodeUpgradeCheckFailed      = "UPGRADE_CHECK_FAILED"
 	CodeUpgradeDownloadFailed   = "UPGRADE_DOWNLOAD_FAILED"
