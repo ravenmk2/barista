@@ -14,6 +14,7 @@ import (
 	mvncli "barista/internal/cli/mvn"
 	repocli "barista/internal/cli/repo"
 	upgradecli "barista/internal/cli/upgrade"
+	uvcli "barista/internal/cli/uv"
 )
 
 var ExitCode int
@@ -36,6 +37,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.AddCommand(depscli.NewCmd(&ExitCode))
 	root.AddCommand(doctorcli.NewCmd(&ExitCode))
 	root.AddCommand(upgradecli.NewCmd(&ExitCode, version))
+	root.AddCommand(uvcli.NewCmd(&ExitCode))
 	root.AddCommand(schemaCmd())
 	return root
 }

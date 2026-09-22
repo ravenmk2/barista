@@ -64,6 +64,10 @@ const (
 	CodeUpgradeChecksumMismatch = "UPGRADE_CHECKSUM_MISMATCH"
 	CodeUpgradeExtractFailed    = "UPGRADE_EXTRACT_FAILED"
 	CodeUpgradeReplaceFailed    = "UPGRADE_REPLACE_FAILED"
+	CodeUvUnsupportedPlatform   = "UV_UNSUPPORTED_PLATFORM"
+	CodeUvDownloadFailed        = "UV_DOWNLOAD_FAILED"
+	CodeUvChecksumMismatch      = "UV_CHECKSUM_MISMATCH"
+	CodeUvInstallFailed         = "UV_INSTALL_FAILED"
 	CodeUsageError              = "USAGE_ERROR"
 	CodeConfirmationRequired    = "CONFIRMATION_REQUIRED"
 )

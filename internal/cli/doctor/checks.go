@@ -14,6 +14,7 @@ import (
 	"barista/internal/jdk"
 	"barista/internal/maven"
 	"barista/internal/output"
+	"barista/internal/uv"
 	"barista/internal/workspace"
 )
 
@@ -61,6 +62,19 @@ func checkGitOnPath() output.Result {
 		return failed(name, "user", check, output.CodeGitError, "git not found on PATH", "install git and make sure it is on PATH")
 	}
 	return ok(name, "user", check, nil)
+}
+
+func checkUv() output.Result {
+	const name, check = "uv", "uvAvailable"
+	if p, err := exec.LookPath("uv"); err == nil {
+		return ok(name, "user", check, map[string]any{"path": filepath.ToSlash(p)})
+	}
+	if dir, err := uv.LocalBinDir(); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, uv.BinaryName())); err == nil {
+			return skipped(name, "user", check, "installed at "+filepath.ToSlash(dir)+" but not on PATH")
+		}
+	}
+	return skipped(name, "user", check, "not installed (run: barista uv install)")
 }
 
 func checkJavaHome() output.Result {

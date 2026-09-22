@@ -465,7 +465,7 @@ barista doctor [--deep]
 
 ### 检查项
 
-- user 级：git 在 PATH；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
+- user 级：git 在 PATH；uv 可用（`uvAvailable`：PATH 命中报 ok；仅 `~/.local/bin` 存在或完全缺失均报 skipped，uv 是可选工具）；`JAVA_HOME` 有效性（未设置是合法的 ambient 状态，报 skipped）；`config.json` / `jdk.json` / `maven.json` / `gradle.json` 可解析；每个 JDK 条目 `bin/java` 存在、每个 Maven / Gradle 安装 probe 版本与注册一致（纯文件系统）；`defaults` / `default` / `jdk` / `installDir` 引用可解析
 - workspace 级：`.barista` 整体可加载（repos.json / config.json / properties.json）；每个 repo 检出存在（未克隆报 skipped，含补救命令）；`repos[].deps` 引用完整性（dangling 报 failed，`repoDeps`）；workspace properties 的 `jdk` / `maven.default` / `maven.launch` / `gradle.default` 与 per-repo properties 的 `jdk` / `maven.launch`（无 per-repo `maven.default` / `gradle.default`，与 mvn / gradle 解析链"无 repo 级"一致）可解析或合法；`settings.xml` / `settings-security.xml` 与 `.barista/gradle/` 下 `init.gradle` / `init.gradle.kts` 存在性（不存在报 skipped，可选文件，两个 init script 各自独立报告）；逐 repo 浅查 `.java-version`（`javaVersionFile`：存在则校验可解析且注册表可解析，distro 词元逻辑同 mvn/java）与 `.mvn/wrapper/maven-wrapper.properties`（`mavenWrapperFile`：存在则校验 `distributionUrl` 版本注册表可解析，失败 hint 指向 `barista maven install <version>`）、`gradle/wrapper/gradle-wrapper.properties`（`gradleWrapperFile`：同上语义，失败 hint 指向 `barista gradle install <version>`）；文件不存在均报 skipped。注意 wrapper 检查只看 repo 检出根，不上爬、不读 `MAVEN_BASEDIR`（与 mvn / gradle 执行器的上爬查找语义不同）
 
 ### 要点
@@ -474,9 +474,33 @@ barista doctor [--deep]
 - 结果三态：ok / skipped（不适用或信息项，reason 在 detail）/ failed（带 hint）；exit 0 全过 / 1 有 failed / 2 用法错误
 - `--json` 每项 detail 含 `scope`（user|workspace）与 `check`（检查 id，如 `jdkInstall` / `repoCheckout`）
 
+## uv — 轻量安装器
+
+把 uv（Astral 的 Python 包/项目管理器）装进 `~/.local/bin`。Python 版本管理委托给 uv 自身（`uv python install` / PEP 723 `uv run`），barista 不设 uv 注册表。
+
+```txt
+barista uv install [--version V] [--source S] [--yes] [--attempts N]
+```
+
+| flag         | 说明                                                                     |
+| ------------ | ------------------------------------------------------------------------ |
+| `--version`  | 安装指定 release tag（默认 latest）                                       |
+| `--source`   | 下载源：`astral`（官方 CDN，默认）/ `github` / 自定义 `https://` base（需配合 `--version`） |
+| `--yes`      | uv 已在 PATH 可用时不询问，直接安装                                       |
+| `--attempts` | 瞬时网络失败的重试次数（默认 10）                                          |
+
+### 行为
+
+- astral 源（默认）先解析 latest（官方安装脚本里的 `APP_VERSION`），已装版本相同直接 skipped 不下载；github 源走 `/latest/download/` 固定 URL，下载后探版本再比对
+- 下载 `astral-sh/uv` 对应平台资产（windows→zip，linux/darwin→tar.gz；不支持的平台报 `UV_UNSUPPORTED_PLATFORM`）与旁挂 `.sha256`，校验不符报 `UV_CHECKSUM_MISMATCH`
+- PATH 上已有 uv（且不是目标路径）时提示已可用并询问是否继续（TTY 默认 no；非 TTY 报 `CONFIRMATION_REQUIRED` exit 2；`--yes` 直通）
+- 压缩包内的可执行文件全部安装（`uv` / `uvx`，windows 另有 `uvw`）；目标版本与已装版本相同报 skipped（幂等）
+- 装完检查 `~/.local/bin` 是否在 PATH，不在则给出分平台配置提示；成功时提示下一步 `uv python install 3.14`
+- exit 0 成功或 skipped / 1 下载、校验或安装失败 / 2 用法错误
+
 ## upgrade — 自更新
 
-从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
+从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` / `uv install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
 barista upgrade [--check] [--yes] [--attempts N]

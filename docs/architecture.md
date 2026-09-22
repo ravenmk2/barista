@@ -7,7 +7,7 @@ barista 的全局架构契约，改动代码前必读。本文件只写跨域关
 ```txt
 cmd/barista/          入口（fang.Execute）
 internal/
-  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ doctor/ upgrade/）+ schema 命令
+  cli/              cobra 命令层：解析参数、组装 []Task，不碰业务逻辑；root（--json/--parallel）+ comp/ 补全 + 各命令组子包（init/ git/ repo/ deps/ jdk/ maven/ mvn/ java/ gradle/ doctor/ upgrade/ uv/）+ schema 命令
   workspace/        工作区发现与 .barista/ 各文件读写（repos.json / config.json / properties.json）
   gitrun/           git 域：exec 封装、单仓库操作、默认分支解析
   deps/             依赖图域：建图、环检测、构建层级（纯函数）
@@ -17,6 +17,7 @@ internal/
   toolversion/      点分数字版本 + qualifier 的解析与比较公共包（maven / gradle 共用）
   download/         通用下载（断点续传 / 重试）与归档解压（zip / tar.gz），jdk / maven / gradle / upgrade 共用
   upgrade/          自更新域：manifest、校验、可执行文件自替换
+  uv/               uv 域：轻量安装器（astral-sh/uv 资产解析、校验、解压到 ~/.local/bin）
   runner/           通用并发 worker pool（泛型，不绑定 git 语义）
   output/           Result 类型 + text / json / tui renderer + 高亮（color.go）+ TTY 判定 + 下载进度格式化（progress.go）
 schemas/            JSON Schema 单一数据源（包即数据目录，同目录 go:embed）
@@ -82,5 +83,6 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 | [design/gradle.md](design/gradle.md) | gradle registry、probe、available、install、偏好分层 |
 | [design/executors.md](design/executors.md) | `barista mvn` / `barista java` / `barista gradle` 执行器、planExec、注入规则、启动模式 |
 | [design/doctor.md](design/doctor.md) | doctor 体检项与执行模型 |
+| [design/uv.md](design/uv.md) | uv 轻量安装器（无注册表，Python 委托 uv 自身） |
 | [design/upgrade.md](design/upgrade.md) | 自更新流程、manifest、平台替换 |
 | [design/mirror.md](design/mirror.md) | 下载镜像：分域 mirror 配置、预设映射、回退与安全契约 |

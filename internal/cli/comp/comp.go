@@ -200,6 +200,13 @@ func MirrorNames() []string {
 	}
 }
 
+func UvSources() []string {
+	return []string{
+		"astral\tAstral CDN (releases.astral.sh, default)",
+		"github\tGitHub releases",
+	}
+}
+
 func SchemaNames() []string {
 	var out []string
 	for _, e := range schemas.List() {

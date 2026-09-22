@@ -57,6 +57,7 @@ func assemble(cmd *cobra.Command, deep bool) ([]output.Result, []runner.Task[out
 	ctx := cmd.Context()
 
 	add(checkGitOnPath())
+	add(checkUv())
 	add(checkJavaHome())
 	add(checkUserConfig())
 

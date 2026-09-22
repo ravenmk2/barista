@@ -13,6 +13,7 @@
 始终查 user 级：
 
 - git on PATH
+- uv 可用（uvAvailable：PATH 命中 ok；仅 ~/.local/bin 存在或完全缺失均 skipped，可选工具不算 failed）
 - JAVA_HOME 有效性
 - config / jdk / maven / gradle registry 可解析性与引用完整性（defaults / default / jdk / installDir）
 - Maven / Gradle 条目版本用纯文件系统 probe 即时比对
