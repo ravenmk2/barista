@@ -291,6 +291,7 @@ func TestDownloadCmdArgsValidation(t *testing.T) {
 		{"not-a-distro"},
 		{"temurin17", "--os", "plan9"},
 		{"temurin17", "--arch", "386"},
+		{"temurin17", "--attempts", "0"},
 		{"temurin17", "extra"},
 	} {
 		cmd := downloadCmd()

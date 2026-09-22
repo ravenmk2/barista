@@ -27,7 +27,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-const DefaultAttempts = 4
+const DefaultAttempts = 10
 
 type Options struct {
 	Attempts   int

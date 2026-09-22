@@ -236,8 +236,8 @@ barista deps order --label java
 
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符按用法错误处理（exit 2）；`--default` 同时设为该 major 的默认
-- install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试，TTY 下 stderr 渲染进度条；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
-- download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
+- install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试（默认 10 次，`--attempts` 覆盖，必须 >= 1），TTY 下 stderr 渲染进度条；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
+- download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
 - available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
@@ -278,7 +278,7 @@ barista jdk which 17
 
 - add / discover / install 的自动命名为 `maven-<version>`（完整版本号含 qualifier，如 `maven-3.9.11` / `maven-4.0.0-rc-4`），冲突自动追加 `-1` / `-2`；add 与 install 均支持 `--name` 指定注册名，名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；install 的 `--name` 与已注册名冲突报 MAVEN_EXISTS；add 的 `--default` 同时设为默认
 - set-default：对 name 校验同一名称模式 `[a-z0-9][a-z0-9._-]*`（不符为用法错误，exit 2），但不查版本号形态（remove/uninstall/set-default 本就强制精确名，不走模糊解析）
-- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
+- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
 - available：抓取 archive.apache.org 目录列表（与 install 同一来源），默认每个 minor 线只列最新版本，`--all` 列全部；text 输出 VERSION/TAGS 表（latest / installed 标记，installed 按版本与注册表比对）；联网失败报 MAVEN_AVAILABLE_FAILED
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
@@ -424,7 +424,7 @@ barista gradle [flags] -- <gradle args...>
 - 只有 script 启动：Unix 直接 `bin/gradle`，Windows 经 `cmd /c bin/gradle.bat`（无 mvn 的 `--launch` 对应物）；解析到 JDK 时子进程 JAVA_HOME 被替换为该 JDK；Gradle 子进程非零退出时 barista exit 1
 - add / discover / install 的自动命名为 `gradle-<version>`（完整版本号含 qualifier，如 `gradle-9.0.0-rc-1`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
 - 固有局限：预发行版发行包的 jar 用裸基础版本命名（probe 不起子进程，读不出 qualifier），add / discover 对预发行版 home 只能注册基础版本（如 `9.0.0`）；install 不受此限，注册完整版本号（如 `9.0.0-rc-1`）
-- install：先经 available 列表解析版本，无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
+- install：先经 available 列表解析版本，无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
 - available：数据源 `services.gradle.org/versions/all`，过滤 snapshot / nightly / releaseNightly / broken；默认只列两个最新 major 线各 minor 的最新 final 版本（预发布只随 `--all` 出现）；tags 标记 latest / installed / rc / milestone；联网失败报 `GRADLE_AVAILABLE_FAILED`
 - which 版本解析逐级放宽：`8.10.1` → `8.10` → `8`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `gradle.default` / `jdk` 覆盖 user 注册表字段
@@ -468,21 +468,22 @@ barista doctor [--deep]
 从最新 GitHub release 的清单文件（`manifest.json` asset）检测并应用自更新。所有联网均为用户显式触发：`upgrade` 与 `jdk available` / `maven available` / `gradle available` 查询版本/更新信息，`jdk install` / `jdk download` / `maven install` / `gradle install` 下载发行包，git 批量命令经系统 git 访问远端；除此之外永不被动联网（包括永不被动检测更新）。
 
 ```txt
-barista upgrade [--check] [--yes]
+barista upgrade [--check] [--yes] [--attempts N]
 ```
 
-| flag      | 说明                                       |
-| --------- | ------------------------------------------ |
-| `--check` | 只检测是否有新版本，不下载不替换           |
-| `--yes`   | 跳过确认提示（非 TTY 下必需）              |
+| flag         | 说明                                       |
+| ------------ | ------------------------------------------ |
+| `--check`    | 只检测是否有新版本，不下载不替换           |
+| `--yes`      | 跳过确认提示（非 TTY 下必需）              |
+| `--attempts` | 下载尝试次数（默认 10，必须 >= 1）         |
 
 ### 行为
 
 - 读取 `releases/latest/download/manifest.json`（无 API 调用、无鉴权）；当前版本 ≥ 最新时报 already up to date（幂等）；dev/dirty 构建视为未知版本，始终可升级到最新 release
 - 下载对应 GOOS/GOARCH 的 asset（断点续传 + 指数退避重试，TTY 下 stderr 渲染进度条），完成后 sha256 校验，不符报 `UPGRADE_CHECKSUM_MISMATCH`
 - 替换当前可执行文件：Unix 临时文件 + rename 原子覆盖；Windows 先把运行中的旧 exe 改名为 `.old` 再写入新文件（`.old` 下次运行 upgrade 时自动清理）；目标不可写报 `UPGRADE_REPLACE_FAILED` 并带 hint
-- 确认契约：TTY 交互询问，非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
-- exit 0 已最新、升级成功或 TTY 下回答 no 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
+- 确认契约：TTY 交互询问（`[Y/n]` 默认 yes，回答 n 取消），非 TTY 报 `CONFIRMATION_REQUIRED`（exit 2），`--yes` 直通
+- exit 0 已最新、升级成功或 TTY 下回答 n 取消（结果标记 skipped/aborted） / 1 网络、校验或替换失败 / 2 确认缺失等用法错误
 
 清单文件由 release workflow 生成（六平台 asset 的 file/sha256/size），发布前用 `barista schema validate manifest <file>` 校验（不带 file 会解析到工作区默认路径 `<workspace>/.barista/manifest.json`）。
 

@@ -29,6 +29,9 @@ func installCmd() *cobra.Command {
 			if _, _, err := maven.ParseVersion(args[0]); err != nil {
 				return fmt.Errorf("invalid version %q (want e.g. 3.9.11)", args[0])
 			}
+			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
+				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -133,8 +136,10 @@ func installCmd() *cobra.Command {
 			_ = tmp.Close()
 			defer func() { _ = os.Remove(tmpPath) }()
 			showProgress := !jsonOut && output.StderrIsTerminal()
+			attempts, _ := cmd.Flags().GetInt("attempts")
 			start := time.Now()
 			err = download.Download(cmd.Context(), url, tmpPath, &download.Options{
+				Attempts: attempts,
 				OnProgress: func(received, total int64) {
 					if showProgress {
 						fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
@@ -144,7 +149,7 @@ func installCmd() *cobra.Command {
 					if showProgress {
 						fmt.Fprintln(os.Stderr)
 					}
-					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (%d/%d)", err, attempt, download.DefaultAttempts)))
+					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 				},
 			})
 			if showProgress {
@@ -238,5 +243,6 @@ func installCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "register under this name (default: maven-<version>)")
 	cmd.Flags().Bool("yes", false, "install the best match without asking when the requested version is not available")
+	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
 	return cmd
 }

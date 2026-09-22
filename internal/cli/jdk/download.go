@@ -38,6 +38,9 @@ func downloadCmd() *cobra.Command {
 			if a, _ := cmd.Flags().GetString("arch"); !validTargetArch(a) {
 				return fmt.Errorf("invalid --arch %q (want amd64 or arm64)", a)
 			}
+			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
+				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,6 +74,7 @@ func downloadCmd() *cobra.Command {
 	cmd.Flags().String("os", runtime.GOOS, "target OS (linux|darwin|windows)")
 	cmd.Flags().String("arch", runtime.GOARCH, "target architecture (amd64|arm64)")
 	cmd.Flags().String("output", "", "destination directory or file path (default: current directory)")
+	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
 	_ = cmd.RegisterFlagCompletionFunc("os", comp.Fn(comp.TargetOSes))
 	_ = cmd.RegisterFlagCompletionFunc("arch", comp.Fn(comp.TargetArches))
 	_ = cmd.RegisterFlagCompletionFunc("output", comp.Dirs)
@@ -112,8 +116,10 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 	}
 	part := dest + ".part"
 	showProgress := !jsonOut && output.StderrIsTerminal()
+	attempts, _ := cmd.Flags().GetInt("attempts")
 	start := time.Now()
 	err = download.Download(cmd.Context(), url, part, &download.Options{
+		Attempts: attempts,
 		OnProgress: func(received, total int64) {
 			if showProgress {
 				fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
@@ -123,7 +129,7 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 			if showProgress {
 				fmt.Fprintln(os.Stderr)
 			}
-			fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (%d/%d)", err, attempt, download.DefaultAttempts)))
+			fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 		},
 	})
 	if showProgress {

@@ -12,7 +12,7 @@ release manifest 拉取 / 解析 / 校验（base URL 可注入，默认 GitHub r
 
 1. 读最新 release 的 `manifest.json` asset（固定 URL，无 API 调用）
 2. 比较版本：复用 `maven.CompareVersions`；当前 ≥ 最新幂等报 ok；dev / dirty 构建视为未知，始终可升级
-3. 下载平台 asset：复用 download 包（断点续传 + 重试 + TTY 进度条）
+3. 下载平台 asset：复用 download 包（断点续传 + 重试 + TTY 进度条，重试次数同其他下载命令，`--attempts` 可覆盖）
 4. sha256 校验，不符报 UPGRADE_CHECKSUM_MISMATCH
 5. 替换 `os.Executable()`：
    - Unix：临时文件 rename 原子覆盖
@@ -20,7 +20,7 @@ release manifest 拉取 / 解析 / 校验（base URL 可注入，默认 GitHub r
 
 ## 确认契约与 flag
 
-- 同 uninstall：TTY 询问 / 非 TTY CONFIRMATION_REQUIRED（exit 2）/ `--yes` 直通
+- TTY 询问（`[Y/n]` 默认 yes，回答 n 中止）/ 非 TTY CONFIRMATION_REQUIRED（exit 2）/ `--yes` 直通
 - `--check` 只检测不下载
 
 ## 清单生成

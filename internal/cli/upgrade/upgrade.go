@@ -27,7 +27,15 @@ func NewCmd(exit *int, version string) *cobra.Command {
 		Long: "Check the latest GitHub release manifest and replace the running binary in place.\n" +
 			"The download is sha256-verified against the manifest. A dev build is treated as an\n" +
 			"unknown version and is always upgradeable.",
-		Args: cobra.NoArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.NoArgs(cmd, args); err != nil {
+				return err
+			}
+			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
+				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			*exitCode = 0
 			exe, err := os.Executable()
@@ -101,6 +109,7 @@ func NewCmd(exit *int, version string) *cobra.Command {
 	}
 	cmd.Flags().Bool("check", false, "only check for a newer release, do not download or replace")
 	cmd.Flags().Bool("yes", false, "skip the confirmation prompt")
+	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
 	return cmd
 }
 
@@ -117,9 +126,10 @@ func confirmUpgrade(cmd *cobra.Command, current, latest, exe string) bool {
 		return false
 	}
 	p := palette()
-	fmt.Fprintf(os.Stderr, "upgrade %s → %s, replacing %s? [y/N] ", p.Cyan(current), p.Cyan(latest), filepath.ToSlash(exe))
+	fmt.Fprintf(os.Stderr, "upgrade %s → %s, replacing %s? [Y/n] ", p.Cyan(current), p.Cyan(latest), filepath.ToSlash(exe))
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	return strings.EqualFold(strings.TrimSpace(line), "y") || strings.EqualFold(strings.TrimSpace(line), "yes")
+	a := strings.TrimSpace(line)
+	return !strings.EqualFold(a, "n") && !strings.EqualFold(a, "no")
 }
 
 func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.Asset, exe string) *output.ErrInfo {
@@ -134,8 +144,10 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 
 	jsonOut, _ := cmd.Flags().GetBool("json")
 	showProgress := !jsonOut && output.StderrIsTerminal()
+	attempts, _ := cmd.Flags().GetInt("attempts")
 	start := time.Now()
 	err = download.Download(cmd.Context(), url, tmpPath, &download.Options{
+		Attempts: attempts,
 		OnProgress: func(received, total int64) {
 			if showProgress {
 				fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
@@ -143,8 +155,9 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 		},
 		OnRetry: func(attempt int, err error) {
 			if showProgress {
-				fmt.Fprintf(os.Stderr, "\n%s\n", palette().Yellow(fmt.Sprintf("retry %d: %v", attempt, err)))
+				fmt.Fprintln(os.Stderr)
 			}
+			fmt.Fprintln(os.Stderr, palette().Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 		},
 	})
 	if showProgress {
