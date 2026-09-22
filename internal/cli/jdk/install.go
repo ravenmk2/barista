@@ -32,7 +32,7 @@ func installCmd() *cobra.Command {
 			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
 				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
 			}
-			return nil
+			return validateMirrorFlag(cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
@@ -89,8 +89,20 @@ func installCmd() *cobra.Command {
 				return nil
 			}
 			jsonOut, _ := cmd.Flags().GetBool("json")
+			mirrorURL, mirrorSum, mirrorRaw, mirrorWarn, me := resolveTemurinMirror(cmd.Context(), cmd, distro, major, runtime.GOOS, runtime.GOARCH)
+			if me != nil {
+				fail(cmd, me)
+				return nil
+			}
+			primaryURL := url
+			if mirrorURL != "" {
+				primaryURL = mirrorURL
+			}
 			if !jsonOut {
-				fmt.Fprintln(os.Stderr, p.Dim("downloading "+url))
+				if mirrorWarn != "" {
+					fmt.Fprintln(os.Stderr, p.Yellow(mirrorWarn))
+				}
+				fmt.Fprintln(os.Stderr, "downloading "+primaryURL)
 			}
 			tmp, err := os.CreateTemp("", "barista-jdk-*")
 			if err != nil {
@@ -103,11 +115,11 @@ func installCmd() *cobra.Command {
 			showProgress := !jsonOut && output.StderrIsTerminal()
 			attempts, _ := cmd.Flags().GetInt("attempts")
 			start := time.Now()
-			err = download.Download(cmd.Context(), url, tmpPath, &download.Options{
+			dlOpts := &download.Options{
 				Attempts: attempts,
 				OnProgress: func(received, total int64) {
 					if showProgress {
-						fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
+						fmt.Fprint(os.Stderr, "\r"+output.ProgressLine(p, received, total, time.Since(start)))
 					}
 				},
 				OnRetry: func(attempt int, err error) {
@@ -116,7 +128,22 @@ func installCmd() *cobra.Command {
 					}
 					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 				},
-			})
+				OnFallback: func(fallbackURL string, err error) {
+					if showProgress {
+						fmt.Fprintln(os.Stderr)
+					}
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Yellow("mirror unavailable, falling back to "+fallbackURL))
+					}
+					start = time.Now()
+				},
+			}
+			usedURL := url
+			if mirrorURL != "" {
+				usedURL, err = download.WithFallback(cmd.Context(), mirrorURL, url, tmpPath, dlOpts)
+			} else {
+				err = download.Download(cmd.Context(), url, tmpPath, dlOpts)
+			}
 			if showProgress {
 				fmt.Fprintln(os.Stderr)
 			}
@@ -124,7 +151,18 @@ func installCmd() *cobra.Command {
 				failRes(&output.ErrInfo{Code: output.CodeJDKDownloadFailed, Message: err.Error()})
 				return nil
 			}
-			if cp, ok := prov.(jdk.ChecksumProvider); ok {
+			if mirrorSum != "" {
+				if !jsonOut {
+					fmt.Fprintln(os.Stderr, p.Dim("verifying sha256"))
+				}
+				if e := jdk.VerifySHA256(tmpPath, mirrorSum); e != nil {
+					if e.Code == output.CodeJDKChecksumMismatch {
+						e.Hint = "the bytes came from a mirror; check your mirror configuration"
+					}
+					failRes(e)
+					return nil
+				}
+			} else if cp, ok := prov.(jdk.ChecksumProvider); ok {
 				if sum, ok := cp.ExpectedSHA256(major, runtime.GOOS, runtime.GOARCH); ok {
 					if !jsonOut {
 						fmt.Fprintln(os.Stderr, p.Dim("verifying sha256"))
@@ -180,10 +218,14 @@ func installCmd() *cobra.Command {
 			res.Status = output.StatusOK
 			res.Path = filepath.ToSlash(info.Home)
 			res.Detail = map[string]any{
-				"major":   info.Major,
-				"version": info.Version,
-				"distro":  info.Distro,
-				"managed": true,
+				"major":       info.Major,
+				"version":     info.Version,
+				"distro":      info.Distro,
+				"managed":     true,
+				"downloadUrl": usedURL,
+			}
+			if mirrorRaw != "" {
+				res.Detail["mirror"] = mirrorRaw
 			}
 			if !jsonOut {
 				fmt.Printf("installed %s (%s %s) at %s\n", p.Cyan(name), info.Distro, info.Version, filepath.ToSlash(info.Home))
@@ -193,5 +235,6 @@ func installCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
+	addMirrorFlag(cmd)
 	return cmd
 }

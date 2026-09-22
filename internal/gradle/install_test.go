@@ -127,12 +127,15 @@ func installFixture(t *testing.T, inlineSum, fileSum string) (*Registry, string)
 
 func TestInstall(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
-	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", nil)
+	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
 	if res.RequestedVersion != "" {
 		t.Errorf("RequestedVersion = %q, want empty", res.RequestedVersion)
+	}
+	if res.DownloadURL == "" {
+		t.Error("DownloadURL must record the actual download source")
 	}
 	if res.Entry.Name != "gradle-8.10.2" || res.Entry.Version != "8.10.2" || !res.Entry.Managed {
 		t.Errorf("entry = %+v", res.Entry)
@@ -158,12 +161,15 @@ func TestInstallResolved(t *testing.T) {
 	if !found {
 		t.Fatal("no match for 8")
 	}
-	res, e := InstallResolved(context.Background(), reg, regPath, match, "", nil)
+	res, e := InstallResolved(context.Background(), reg, regPath, match, "", "", nil)
 	if e != nil {
 		t.Fatalf("InstallResolved: %v", e)
 	}
 	if res.RequestedVersion != "" {
 		t.Errorf("RequestedVersion = %q, want empty (substitution is the caller's concern)", res.RequestedVersion)
+	}
+	if res.DownloadURL != match.DownloadURL {
+		t.Errorf("DownloadURL = %q, want %q", res.DownloadURL, match.DownloadURL)
 	}
 	if res.Entry.Name != "gradle-8.10.2" || res.Entry.Version != "8.10.2" {
 		t.Errorf("entry = %+v", res.Entry)
@@ -172,7 +178,7 @@ func TestInstallResolved(t *testing.T) {
 
 func TestInstallFuzzySubstitution(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
-	res, e := Install(context.Background(), reg, regPath, "8", "", nil)
+	res, e := Install(context.Background(), reg, regPath, "8", "", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
@@ -183,7 +189,7 @@ func TestInstallFuzzySubstitution(t *testing.T) {
 
 func TestInstallExplicitName(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
-	res, e := Install(context.Background(), reg, regPath, "8.10.2", "my-gradle", nil)
+	res, e := Install(context.Background(), reg, regPath, "8.10.2", "my-gradle", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
@@ -197,7 +203,7 @@ func TestInstallNameConflict(t *testing.T) {
 	reg := &Registry{InstallDir: t.TempDir()}
 	reg.Installations = append(reg.Installations, Entry{Name: "my-gradle", Version: "8.9", Path: "/x"})
 	regPath := filepath.Join(t.TempDir(), "gradle.json")
-	if _, e := Install(context.Background(), reg, regPath, "8.10.2", "my-gradle", nil); e == nil || e.Code != output.CodeGradleExists {
+	if _, e := Install(context.Background(), reg, regPath, "8.10.2", "my-gradle", "", nil); e == nil || e.Code != output.CodeGradleExists {
 		t.Errorf("want GRADLE_EXISTS before any network, got %v", e)
 	}
 }
@@ -205,7 +211,7 @@ func TestInstallNameConflict(t *testing.T) {
 func TestInstallAutoNameConflictSuffix(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
 	reg.Installations = append(reg.Installations, Entry{Name: "gradle-8.10.2", Version: "8.10.2", Path: "/x"})
-	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", nil)
+	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
@@ -216,7 +222,7 @@ func TestInstallAutoNameConflictSuffix(t *testing.T) {
 
 func TestInstallNoMatch(t *testing.T) {
 	reg, regPath := installFixture(t, "real", "")
-	if _, e := Install(context.Background(), reg, regPath, "7", "", nil); e == nil || e.Code != output.CodeGradleNotFound {
+	if _, e := Install(context.Background(), reg, regPath, "7", "", "", nil); e == nil || e.Code != output.CodeGradleNotFound {
 		t.Errorf("want GRADLE_NOT_FOUND, got %v", e)
 	}
 }
@@ -239,7 +245,7 @@ func TestInstallPrerelease(t *testing.T) {
 	useVersionsBase(t, srv.URL)
 	reg := &Registry{InstallDir: t.TempDir()}
 	regPath := filepath.Join(t.TempDir(), "gradle.json")
-	res, e := Install(context.Background(), reg, regPath, "9.0.0-rc-1", "", nil)
+	res, e := Install(context.Background(), reg, regPath, "9.0.0-rc-1", "", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
@@ -257,7 +263,7 @@ func TestInstallPrerelease(t *testing.T) {
 
 func TestInstallChecksumMismatch(t *testing.T) {
 	reg, regPath := installFixture(t, strings.Repeat("0", 64), "")
-	if _, e := Install(context.Background(), reg, regPath, "8.10.2", "", nil); e == nil || e.Code != output.CodeGradleChecksumMismatch {
+	if _, e := Install(context.Background(), reg, regPath, "8.10.2", "", "", nil); e == nil || e.Code != output.CodeGradleChecksumMismatch {
 		t.Errorf("want GRADLE_CHECKSUM_MISMATCH, got %v", e)
 	}
 	entries, err := os.ReadDir(reg.InstallDir)
@@ -268,11 +274,107 @@ func TestInstallChecksumMismatch(t *testing.T) {
 
 func TestInstallChecksumURLFallback(t *testing.T) {
 	reg, regPath := installFixture(t, "", "real")
-	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", nil)
+	res, e := Install(context.Background(), reg, regPath, "8.10.2", "", "", nil)
 	if e != nil {
 		t.Fatalf("Install: %v", e)
 	}
 	if res.Entry.Version != "8.10.2" {
 		t.Errorf("entry = %+v", res.Entry)
+	}
+}
+
+func TestMirrorDownloadURL(t *testing.T) {
+	official := "https://services.gradle.org/distributions/gradle-8.10.2-bin.zip"
+	if got := MirrorDownloadURL(official, "https://mirrors.cloud.tencent.com/gradle"); got != "https://mirrors.cloud.tencent.com/gradle/gradle-8.10.2-bin.zip" {
+		t.Errorf("mirror rewrite = %q", got)
+	}
+	if got := MirrorDownloadURL(official, ""); got != official {
+		t.Errorf("empty base = %q", got)
+	}
+	if got := MirrorDownloadURL("https://example.com/other.zip", "https://mirrors.example.com/gradle"); got != "https://example.com/other.zip" {
+		t.Errorf("non-distributions URL = %q", got)
+	}
+}
+
+func TestInstallResolvedMirrorFallback(t *testing.T) {
+	zipData, sum := fakeDistribution(t, "8.10.2", "8.10.2")
+	official := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipData)
+	}))
+	t.Cleanup(official.Close)
+	mirror := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(mirror.Close)
+	reg := &Registry{InstallDir: t.TempDir()}
+	regPath := filepath.Join(t.TempDir(), "gradle.json")
+	match := AvailableVersion{
+		Version:     "8.10.2",
+		DownloadURL: mirror.URL + "/gradle-8.10.2-bin.zip",
+		Checksum:    sum,
+	}
+	fallback := official.URL + "/gradle-8.10.2-bin.zip"
+	res, e := InstallResolved(context.Background(), reg, regPath, match, "", fallback, nil)
+	if e != nil {
+		t.Fatalf("InstallResolved with fallback: %v", e)
+	}
+	if res.DownloadURL != fallback {
+		t.Errorf("DownloadURL = %q, want fallback %q", res.DownloadURL, fallback)
+	}
+	if _, err := os.Stat(filepath.Join(res.Entry.Path, "bin", "gradle")); err != nil {
+		t.Errorf("installed file: %v", err)
+	}
+}
+
+func TestInstallResolvedMirrorPrimary(t *testing.T) {
+	zipData, sum := fakeDistribution(t, "8.10.2", "8.10.2")
+	mirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipData)
+	}))
+	t.Cleanup(mirror.Close)
+	reg := &Registry{InstallDir: t.TempDir()}
+	regPath := filepath.Join(t.TempDir(), "gradle.json")
+	match := AvailableVersion{
+		Version:     "8.10.2",
+		DownloadURL: mirror.URL + "/gradle-8.10.2-bin.zip",
+		Checksum:    sum,
+	}
+	res, e := InstallResolved(context.Background(), reg, regPath, match, "", "http://127.0.0.1:1/gradle-8.10.2-bin.zip", nil)
+	if e != nil {
+		t.Fatalf("InstallResolved: %v", e)
+	}
+	if res.DownloadURL != match.DownloadURL {
+		t.Errorf("DownloadURL = %q, want mirror %q", res.DownloadURL, match.DownloadURL)
+	}
+}
+
+func TestInstallChecksumMismatchHintOfficial(t *testing.T) {
+	reg, regPath := installFixture(t, strings.Repeat("0", 64), "")
+	_, e := Install(context.Background(), reg, regPath, "8.10.2", "", "", nil)
+	if e == nil || e.Code != output.CodeGradleChecksumMismatch {
+		t.Fatalf("want GRADLE_CHECKSUM_MISMATCH, got %v", e)
+	}
+	if e.Hint != "" {
+		t.Errorf("official-source mismatch must not carry a mirror hint, got %q", e.Hint)
+	}
+}
+
+func TestInstallResolvedMirrorChecksumMismatchHint(t *testing.T) {
+	zipData, _ := fakeDistribution(t, "8.10.2", "8.10.2")
+	mirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipData)
+	}))
+	t.Cleanup(mirror.Close)
+	reg := &Registry{InstallDir: t.TempDir()}
+	regPath := filepath.Join(t.TempDir(), "gradle.json")
+	match := AvailableVersion{
+		Version:     "8.10.2",
+		DownloadURL: mirror.URL + "/gradle-8.10.2-bin.zip",
+		Checksum:    strings.Repeat("0", 64),
+	}
+	_, e := InstallResolved(context.Background(), reg, regPath, match, "", "http://127.0.0.1:1/gradle-8.10.2-bin.zip", nil)
+	if e == nil || e.Code != output.CodeGradleChecksumMismatch {
+		t.Fatalf("want GRADLE_CHECKSUM_MISMATCH, got %v", e)
+	}
+	if !strings.Contains(e.Hint, "mirror") {
+		t.Errorf("mirror mismatch should hint at the mirror configuration, got %q", e.Hint)
 	}
 }

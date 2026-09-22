@@ -57,14 +57,25 @@ var TemurinAPIBase = "https://api.adoptium.net"
 
 type temurinProvider struct{}
 
-func (temurinProvider) ArchiveURL(major int, goos, goarch string) (string, error) {
+// temurinPlatformTokens maps GOOS/GOARCH to the os/arch tokens used by both
+// the Adoptium API and mirror directory layouts (linux/mac/windows,
+// x64/aarch64).
+func temurinPlatformTokens(goos, goarch string) (osName, arch string, err error) {
 	osName, ok := map[string]string{"linux": "linux", "darwin": "mac", "windows": "windows"}[goos]
 	if !ok {
-		return "", fmt.Errorf("unsupported OS %q", goos)
+		return "", "", fmt.Errorf("unsupported OS %q", goos)
 	}
-	arch, ok := map[string]string{"amd64": "x64", "arm64": "aarch64"}[goarch]
+	arch, ok = map[string]string{"amd64": "x64", "arm64": "aarch64"}[goarch]
 	if !ok {
-		return "", fmt.Errorf("unsupported architecture %q", goarch)
+		return "", "", fmt.Errorf("unsupported architecture %q", goarch)
+	}
+	return osName, arch, nil
+}
+
+func (temurinProvider) ArchiveURL(major int, goos, goarch string) (string, error) {
+	osName, arch, err := temurinPlatformTokens(goos, goarch)
+	if err != nil {
+		return "", err
 	}
 	return fmt.Sprintf("%s/v3/binary/latest/%d/ga/%s/%s/jdk/hotspot/normal/eclipse", TemurinAPIBase, major, osName, arch), nil
 }

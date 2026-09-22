@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"barista/internal/output"
@@ -15,6 +16,18 @@ import (
 )
 
 var VersionsBase = "https://services.gradle.org"
+
+var DistributionsBase = "https://services.gradle.org/distributions"
+
+// MirrorDownloadURL rewrites an official distribution URL onto a mirror base
+// URL (the mirror serves the same distributions layout); URLs not under
+// DistributionsBase are returned unchanged.
+func MirrorDownloadURL(downloadURL, mirrorBase string) string {
+	if mirrorBase == "" || !strings.HasPrefix(downloadURL, DistributionsBase) {
+		return downloadURL
+	}
+	return mirrorBase + strings.TrimPrefix(downloadURL, DistributionsBase)
+}
 
 var availableHTTPClient = &http.Client{Timeout: 15 * time.Second}
 

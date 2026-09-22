@@ -7,6 +7,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"barista/internal/download"
 )
 
 type Repo struct {
@@ -36,9 +38,13 @@ type ReposFile struct {
 }
 
 type ConfigFile struct {
-	Parallel     int    `json:"parallel"`
-	Color        string `json:"color"`
-	ColorProfile string `json:"colorProfile"`
+	Parallel             int    `json:"parallel"`
+	Color                string `json:"color"`
+	ColorProfile         string `json:"colorProfile"`
+	DownloadMirror       string `json:"download.mirror"`
+	JDKDownloadMirror    string `json:"jdk.download.mirror"`
+	MavenDownloadMirror  string `json:"maven.download.mirror"`
+	GradleDownloadMirror string `json:"gradle.download.mirror"`
 }
 
 type Workspace struct {
@@ -260,6 +266,20 @@ func parseConfig(data []byte, source string) (ConfigFile, error) {
 	if cf.Parallel < 0 {
 		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: parallel must be >= 0", source)}
 	}
+	if err := download.ValidateGlobalMirror(cf.DownloadMirror); err != nil {
+		return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: %v", source, err)}
+	}
+	for _, kv := range []struct {
+		key, domain, value string
+	}{
+		{"jdk.download.mirror", download.DomainJDK, cf.JDKDownloadMirror},
+		{"maven.download.mirror", download.DomainMaven, cf.MavenDownloadMirror},
+		{"gradle.download.mirror", download.DomainGradle, cf.GradleDownloadMirror},
+	} {
+		if err := download.ValidateMirror(kv.domain, kv.value); err != nil {
+			return ConfigFile{}, &LoadError{Code: "CONFIG_ERROR", Message: fmt.Sprintf("%s: %s: %v", source, kv.key, err)}
+		}
+	}
 	return cf, nil
 }
 
@@ -299,5 +319,63 @@ func MergeConfig(user, ws ConfigFile) ConfigFile {
 	if ws.Parallel != 0 {
 		out.Parallel = ws.Parallel
 	}
+	if ws.DownloadMirror != "" {
+		out.DownloadMirror = ws.DownloadMirror
+	}
+	if ws.JDKDownloadMirror != "" {
+		out.JDKDownloadMirror = ws.JDKDownloadMirror
+	}
+	if ws.MavenDownloadMirror != "" {
+		out.MavenDownloadMirror = ws.MavenDownloadMirror
+	}
+	if ws.GradleDownloadMirror != "" {
+		out.GradleDownloadMirror = ws.GradleDownloadMirror
+	}
 	return out
+}
+
+// LoadMergedConfig returns the user-level config overlaid with the
+// workspace-level config when start is inside a workspace (workspace wins per
+// key). Not being inside a workspace is not an error.
+func LoadMergedConfig(start string) (ConfigFile, error) {
+	user, err := LoadUserConfig()
+	if err != nil {
+		return ConfigFile{}, err
+	}
+	root := FindWorkspaceRoot(start)
+	if root == "" {
+		return user, nil
+	}
+	ws, err := LoadConfigFile(filepath.Join(root, ".barista", "config.json"))
+	if err != nil {
+		return ConfigFile{}, err
+	}
+	return MergeConfig(user, ws), nil
+}
+
+// MirrorValueFor returns the raw configured mirror value for domain: the
+// per-domain key wins over the global download.mirror; "" when unset.
+func (cf ConfigFile) MirrorValueFor(domain string) string {
+	value := cf.DownloadMirror
+	switch domain {
+	case download.DomainJDK:
+		if cf.JDKDownloadMirror != "" {
+			value = cf.JDKDownloadMirror
+		}
+	case download.DomainMaven:
+		if cf.MavenDownloadMirror != "" {
+			value = cf.MavenDownloadMirror
+		}
+	case download.DomainGradle:
+		if cf.GradleDownloadMirror != "" {
+			value = cf.GradleDownloadMirror
+		}
+	}
+	return value
+}
+
+// MirrorBaseFor resolves the effective download mirror base URL for domain;
+// "" means the official source.
+func (cf ConfigFile) MirrorBaseFor(domain string) (string, error) {
+	return download.MirrorBase(domain, cf.MirrorValueFor(domain))
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"barista/internal/download"
 	"barista/internal/jdk"
 	"barista/internal/output"
 )
@@ -292,6 +294,8 @@ func TestDownloadCmdArgsValidation(t *testing.T) {
 		{"temurin17", "--os", "plan9"},
 		{"temurin17", "--arch", "386"},
 		{"temurin17", "--attempts", "0"},
+		{"temurin17", "--mirror", "bogus"},
+		{"temurin17", "--mirror", "https://mirrors.example.com/Adoptium"},
 		{"temurin17", "extra"},
 	} {
 		cmd := downloadCmd()
@@ -301,5 +305,466 @@ func TestDownloadCmdArgsValidation(t *testing.T) {
 		if err := cmd.Execute(); err == nil {
 			t.Errorf("args %v: want usage error", args)
 		}
+	}
+}
+
+func useTemurinMirrorFixture(t *testing.T, home, mirrorPath string, mirrorHandler http.HandlerFunc) (officialURL, mirrorURL, sum string) {
+	t.Helper()
+	body := "fake temurin archive"
+	digest := sha256.Sum256([]byte(body))
+	sum = hex.EncodeToString(digest[:])
+	link := "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz"
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `[{"binary":{"package":{"link":%q,"checksum":%q}}}]`, link, sum)
+	}))
+	t.Cleanup(api.Close)
+	origAPI := jdk.TemurinAPIBase
+	jdk.TemurinAPIBase = api.URL
+	t.Cleanup(func() { jdk.TemurinAPIBase = origAPI })
+
+	mirror := httptest.NewServer(mirrorHandler)
+	t.Cleanup(mirror.Close)
+	origPresets := download.MirrorPresets
+	download.MirrorPresets = map[string]map[string]string{"testpreset": {download.DomainJDK: mirror.URL}}
+	t.Cleanup(func() { download.MirrorPresets = origPresets })
+
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".barista", "config.json"), []byte(`{"jdk.download.mirror":"testpreset"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return "http://127.0.0.1:1/official", mirror.URL + mirrorPath, sum
+}
+
+func TestRunDownloadTemurinMirror(t *testing.T) {
+	body := "fake temurin archive"
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	official, mirrorURL, sum := useTemurinMirrorFixture(t, home, "/17/jdk/x64/linux/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz",
+		func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) })
+
+	prov := fakeProvider{url: official}
+	outDir := t.TempDir()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	rOut, wOut, _ := os.Pipe()
+	rErr, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", true, "")
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, prov, "temurin", 17, "linux", "amd64", outDir)
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stdoutBytes, _ := io.ReadAll(rOut)
+	stderrBytes, _ := io.ReadAll(rErr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr: %s)", code, stderrBytes)
+	}
+	dest := filepath.Join(outDir, "OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz")
+	data, err := os.ReadFile(dest)
+	if err != nil || string(data) != body {
+		t.Fatalf("downloaded file: err=%v content=%q", err, data)
+	}
+	var env struct {
+		Results []struct {
+			Status string         `json:"status"`
+			Detail map[string]any `json:"detail"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(stdoutBytes, &env); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdoutBytes)
+	}
+	d := env.Results[0].Detail
+	if d["url"] != mirrorURL {
+		t.Errorf("detail url = %v, want mirror %q", d["url"], mirrorURL)
+	}
+	if d["mirror"] != "testpreset" {
+		t.Errorf("detail mirror = %v", d["mirror"])
+	}
+	if d["sha256"] != sum {
+		t.Errorf("detail sha256 = %v, want %q", d["sha256"], sum)
+	}
+}
+
+func TestRunDownloadTemurinMirrorFallback(t *testing.T) {
+	body := "fake temurin archive"
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	officialSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(officialSrv.Close)
+	_, _, sum := useTemurinMirrorFixture(t, home, "/17/jdk/x64/linux/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz",
+		http.NotFound)
+
+	prov := fakeProvider{url: officialSrv.URL + "/official"}
+	outDir := t.TempDir()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	rOut, wOut, _ := os.Pipe()
+	_, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", true, "")
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, prov, "temurin", 17, "linux", "amd64", outDir)
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stdoutBytes, _ := io.ReadAll(rOut)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	dest := filepath.Join(outDir, "OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz")
+	data, err := os.ReadFile(dest)
+	if err != nil || string(data) != body {
+		t.Fatalf("downloaded file: err=%v content=%q", err, data)
+	}
+	var env struct {
+		Results []struct {
+			Status string         `json:"status"`
+			Detail map[string]any `json:"detail"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(stdoutBytes, &env); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdoutBytes)
+	}
+	d := env.Results[0].Detail
+	if d["url"] != officialSrv.URL+"/official" {
+		t.Errorf("detail url = %v, want official fallback", d["url"])
+	}
+	if d["mirror"] != "testpreset" || d["sha256"] != sum {
+		t.Errorf("detail = %v", d)
+	}
+}
+
+func TestRunDownloadTemurinMirrorFallbackText(t *testing.T) {
+	body := "fake temurin archive"
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	officialSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(officialSrv.Close)
+	useTemurinMirrorFixture(t, home, "/17/jdk/x64/linux/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz",
+		http.NotFound)
+
+	prov := fakeProvider{url: officialSrv.URL + "/official"}
+	outDir := t.TempDir()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	_, wOut, _ := os.Pipe()
+	rErr, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", false, "")
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, prov, "temurin", 17, "linux", "amd64", outDir)
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stderrBytes, _ := io.ReadAll(rErr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr: %s)", code, stderrBytes)
+	}
+	wantLine := "mirror unavailable, falling back to " + officialSrv.URL + "/official"
+	if !strings.Contains(string(stderrBytes), wantLine) {
+		t.Errorf("stderr missing %q, got %q", wantLine, stderrBytes)
+	}
+}
+
+func runDownloadMirrorJSON(t *testing.T, prov jdk.Provider, distro string, major int, goos, goarch, outFlag, mirrorFlag string) map[string]any {
+	t.Helper()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	rOut, wOut, _ := os.Pipe()
+	_, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", true, "")
+	if mirrorFlag != "" {
+		if err := cmd.Flags().Set("mirror", mirrorFlag); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, prov, distro, major, goos, goarch, outFlag)
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stdoutBytes, _ := io.ReadAll(rOut)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stdout: %s)", code, stdoutBytes)
+	}
+	var env struct {
+		Results []struct {
+			Detail map[string]any `json:"detail"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(stdoutBytes, &env); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdoutBytes)
+	}
+	if len(env.Results) != 1 {
+		t.Fatalf("want 1 result, got %+v", env.Results)
+	}
+	return env.Results[0].Detail
+}
+
+func TestRunDownloadMirrorFlagOverridesConfig(t *testing.T) {
+	body := "fake temurin archive"
+	sum := sha256.Sum256([]byte(body))
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `[{"binary":{"package":{"link":%q,"checksum":%q}}}]`,
+			"https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz",
+			hex.EncodeToString(sum[:]))
+	}))
+	t.Cleanup(api.Close)
+	origAPI := jdk.TemurinAPIBase
+	jdk.TemurinAPIBase = api.URL
+	t.Cleanup(func() { jdk.TemurinAPIBase = origAPI })
+
+	cfgMirror := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(cfgMirror.Close)
+	flagMirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(flagMirror.Close)
+	origPresets := download.MirrorPresets
+	download.MirrorPresets = map[string]map[string]string{
+		"cfgpreset":  {download.DomainJDK: cfgMirror.URL},
+		"flagpreset": {download.DomainJDK: flagMirror.URL},
+	}
+	t.Cleanup(func() { download.MirrorPresets = origPresets })
+
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".barista", "config.json"), []byte(`{"jdk.download.mirror":"cfgpreset"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := t.TempDir()
+	d := runDownloadMirrorJSON(t, fakeProvider{url: "http://127.0.0.1:1/official"}, "temurin", 17, "linux", "amd64", outDir, "flagpreset")
+	want := flagMirror.URL + "/17/jdk/x64/linux/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz"
+	if d["url"] != want {
+		t.Errorf("detail url = %v, want flag mirror %q (config mirror 404s; only the flag preset can succeed)", d["url"], want)
+	}
+	if d["mirror"] != "flagpreset" {
+		t.Errorf("detail mirror = %v, want flagpreset", d["mirror"])
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz"))
+	if err != nil || string(data) != body {
+		t.Fatalf("downloaded file: err=%v", err)
+	}
+}
+
+func TestRunDownloadMirrorFlagOfficialDisablesConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	officialSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("official body"))
+	}))
+	t.Cleanup(officialSrv.Close)
+	cfgMirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("mirror body"))
+	}))
+	t.Cleanup(cfgMirror.Close)
+	origPresets := download.MirrorPresets
+	download.MirrorPresets = map[string]map[string]string{"cfgpreset": {download.DomainJDK: cfgMirror.URL}}
+	t.Cleanup(func() { download.MirrorPresets = origPresets })
+
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".barista", "config.json"), []byte(`{"jdk.download.mirror":"cfgpreset"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := t.TempDir()
+	d := runDownloadMirrorJSON(t, fakeProvider{url: officialSrv.URL + "/jdk"}, "temurin", 17, "linux", "amd64", outDir, "official")
+	if d["url"] != officialSrv.URL+"/jdk" {
+		t.Errorf("detail url = %v, want official", d["url"])
+	}
+	if _, ok := d["mirror"]; ok {
+		t.Errorf("detail must not carry mirror with --mirror official, got %v", d["mirror"])
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "jdk"))
+	if err != nil || string(data) != "official body" {
+		t.Fatalf("downloaded file: err=%v content=%q", err, data)
+	}
+}
+
+func TestRunDownloadWorkspaceConfigErrorExit2(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ws := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(ws, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ws, ".barista", "config.json"), []byte(`{"jdk.download.mirror":"bogus"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(ws)
+
+	oldOut, oldErr := os.Stdout, os.Stderr
+	_, wOut, _ := os.Pipe()
+	rErr, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", false, "")
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, fakeProvider{url: "http://127.0.0.1:1/x"}, "temurin", 17, "linux", "amd64", t.TempDir())
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stderrBytes, _ := io.ReadAll(rErr)
+	if code != 2 {
+		t.Errorf("exit code = %d, want 2 (config error contract), stderr: %s", code, stderrBytes)
+	}
+	if !strings.Contains(string(stderrBytes), "CONFIG_ERROR") {
+		t.Errorf("stderr missing CONFIG_ERROR, got %q", stderrBytes)
+	}
+}
+
+func TestRunDownloadMirrorDegradeDropsMirrorDetail(t *testing.T) {
+	body := "fake temurin archive"
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	officialSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(officialSrv.Close)
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(api.Close)
+	origAPI := jdk.TemurinAPIBase
+	jdk.TemurinAPIBase = api.URL
+	t.Cleanup(func() { jdk.TemurinAPIBase = origAPI })
+	mirror := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(mirror.Close)
+	origPresets := download.MirrorPresets
+	download.MirrorPresets = map[string]map[string]string{"testpreset": {download.DomainJDK: mirror.URL}}
+	t.Cleanup(func() { download.MirrorPresets = origPresets })
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".barista", "config.json"), []byte(`{"jdk.download.mirror":"testpreset"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	d := runDownloadMirrorJSON(t, fakeProvider{url: officialSrv.URL + "/jdk"}, "temurin", 17, "linux", "amd64", t.TempDir(), "")
+	if d["url"] != officialSrv.URL+"/jdk" {
+		t.Errorf("detail url = %v, want official", d["url"])
+	}
+	if _, ok := d["mirror"]; ok {
+		t.Errorf("degraded path must not carry mirror in detail, got %v", d["mirror"])
+	}
+	if _, ok := d["sha256"]; ok {
+		t.Errorf("degraded path must not carry sha256, got %v", d["sha256"])
+	}
+}
+
+func TestRunDownloadMirrorChecksumMismatchHint(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	tampered := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("tampered body"))
+	})
+	officialSrv := httptest.NewServer(tampered)
+	t.Cleanup(officialSrv.Close)
+	useTemurinMirrorFixture(t, home, "/17/jdk/x64/linux/OpenJDK17U-jdk_x64_linux_hotspot_17.tar.gz", tampered)
+
+	oldOut, oldErr := os.Stdout, os.Stderr
+	rOut, wOut, _ := os.Pipe()
+	_, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()
+
+	var code int
+	exitCode = &code
+	cmd := downloadCmd()
+	cmd.SetContext(context.Background())
+	cmd.Flags().Bool("json", true, "")
+	_, p, ok := userSettings(cmd)
+	if !ok {
+		t.Fatal("userSettings failed")
+	}
+	runDownload(cmd, p, fakeProvider{url: officialSrv.URL + "/official"}, "temurin", 17, "linux", "amd64", t.TempDir())
+
+	_ = wOut.Close()
+	_ = wErr.Close()
+	stdoutBytes, _ := io.ReadAll(rOut)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (stdout: %s)", code, stdoutBytes)
+	}
+	var env struct {
+		Results []struct {
+			Error *struct {
+				Code string `json:"code"`
+				Hint string `json:"hint"`
+			} `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(stdoutBytes, &env); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdoutBytes)
+	}
+	e := env.Results[0].Error
+	if e == nil || e.Code != "JDK_CHECKSUM_MISMATCH" {
+		t.Fatalf("want JDK_CHECKSUM_MISMATCH, got %+v", e)
+	}
+	if !strings.Contains(e.Hint, "mirror") {
+		t.Errorf("hint = %q, want a mirror-configuration hint", e.Hint)
 	}
 }

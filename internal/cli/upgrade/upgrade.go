@@ -150,7 +150,7 @@ func downloadAndVerify(cmd *cobra.Command, m *upgrade.Manifest, asset upgrade.As
 		Attempts: attempts,
 		OnProgress: func(received, total int64) {
 			if showProgress {
-				fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
+				fmt.Fprint(os.Stderr, "\r"+output.ProgressLine(palette(), received, total, time.Since(start)))
 			}
 		},
 		OnRetry: func(attempt int, err error) {

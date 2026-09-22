@@ -190,6 +190,16 @@ func Shells() []string {
 	return []string{"sh\tbash/zsh compatible", "cmd\tWindows cmd.exe", "powershell\tPowerShell / pwsh", "pwsh\talias of powershell", "ps\talias of powershell"}
 }
 
+func MirrorNames() []string {
+	return []string{
+		"official\tofficial sources",
+		"cn\tTUNA (jdk/maven) + Tencent Cloud (gradle)",
+		"tuna\tTUNA (jdk/maven)",
+		"huawei\tHuawei Cloud (maven/gradle)",
+		"tencent\tTencent Cloud (maven/gradle)",
+	}
+}
+
 func SchemaNames() []string {
 	var out []string
 	for _, e := range schemas.List() {

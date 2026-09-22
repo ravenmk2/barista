@@ -10,9 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/download"
 	"barista/internal/maven"
 	"barista/internal/output"
+	"barista/internal/workspace"
 )
 
 func installCmd() *cobra.Command {
@@ -31,6 +33,12 @@ func installCmd() *cobra.Command {
 			}
 			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
 				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
+			}
+			if cmd.Flags().Changed("mirror") {
+				v, _ := cmd.Flags().GetString("mirror")
+				if err := download.ValidateMirror(download.DomainMaven, v); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -110,6 +118,31 @@ func installCmd() *cobra.Command {
 				failRes(&output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
 				return nil
 			}
+			mirrorRaw := ""
+			if cmd.Flags().Changed("mirror") {
+				mirrorRaw, _ = cmd.Flags().GetString("mirror")
+			} else {
+				cwd, err := os.Getwd()
+				if err != nil {
+					fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+					return nil
+				}
+				cfg, err := workspace.LoadMergedConfig(cwd)
+				if err != nil {
+					fail(cmd, configErrInfo(err))
+					return nil
+				}
+				mirrorRaw = cfg.MirrorValueFor(download.DomainMaven)
+			}
+			mirrorBase, err := download.MirrorBase(download.DomainMaven, mirrorRaw)
+			if err != nil {
+				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+				return nil
+			}
+			if mirrorBase == "" {
+				mirrorRaw = ""
+			}
+			mirrorURL := maven.MirrorArchiveURL(url, mirrorBase)
 			root, err := maven.InstallDir(reg.InstallDir)
 			if err != nil {
 				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
@@ -124,8 +157,12 @@ func installCmd() *cobra.Command {
 				})
 				return nil
 			}
+			primaryURL := url
+			if mirrorBase != "" {
+				primaryURL = mirrorURL
+			}
 			if !jsonOut {
-				fmt.Fprintln(os.Stderr, p.Dim("downloading "+url))
+				fmt.Fprintln(os.Stderr, "downloading "+primaryURL)
 			}
 			tmp, err := os.CreateTemp("", "barista-maven-*")
 			if err != nil {
@@ -138,11 +175,11 @@ func installCmd() *cobra.Command {
 			showProgress := !jsonOut && output.StderrIsTerminal()
 			attempts, _ := cmd.Flags().GetInt("attempts")
 			start := time.Now()
-			err = download.Download(cmd.Context(), url, tmpPath, &download.Options{
+			dlOpts := &download.Options{
 				Attempts: attempts,
 				OnProgress: func(received, total int64) {
 					if showProgress {
-						fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
+						fmt.Fprint(os.Stderr, "\r"+output.ProgressLine(p, received, total, time.Since(start)))
 					}
 				},
 				OnRetry: func(attempt int, err error) {
@@ -151,7 +188,22 @@ func installCmd() *cobra.Command {
 					}
 					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 				},
-			})
+				OnFallback: func(fallbackURL string, err error) {
+					if showProgress {
+						fmt.Fprintln(os.Stderr)
+					}
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Yellow("mirror unavailable, falling back to "+fallbackURL))
+					}
+					start = time.Now()
+				},
+			}
+			usedURL := url
+			if mirrorBase != "" {
+				usedURL, err = download.WithFallback(cmd.Context(), mirrorURL, url, tmpPath, dlOpts)
+			} else {
+				err = download.Download(cmd.Context(), url, tmpPath, dlOpts)
+			}
 			if showProgress {
 				fmt.Fprintln(os.Stderr)
 			}
@@ -182,7 +234,11 @@ func installCmd() *cobra.Command {
 				return nil
 			}
 			if err := maven.VerifySHA512(tmpPath, wantSum); err != nil {
-				failRes(&output.ErrInfo{Code: output.CodeMavenChecksumMismatch, Message: err.Error()})
+				e := &output.ErrInfo{Code: output.CodeMavenChecksumMismatch, Message: err.Error()}
+				if mirrorRaw != "" {
+					e.Hint = "the bytes came from a mirror; check your mirror configuration"
+				}
+				failRes(e)
 				return nil
 			}
 			if !jsonOut {
@@ -234,6 +290,10 @@ func installCmd() *cobra.Command {
 			}
 			res.Detail["version"] = info.Version
 			res.Detail["managed"] = true
+			res.Detail["downloadUrl"] = usedURL
+			if mirrorRaw != "" {
+				res.Detail["mirror"] = mirrorRaw
+			}
 			if !jsonOut {
 				fmt.Printf("installed %s (%s) at %s\n", p.Cyan(name), info.Version, filepath.ToSlash(info.Home))
 			}
@@ -244,5 +304,7 @@ func installCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "register under this name (default: maven-<version>)")
 	cmd.Flags().Bool("yes", false, "install the best match without asking when the requested version is not available")
 	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
+	cmd.Flags().String("mirror", "", "download mirror: official, a preset name (cn|tuna|huawei|tencent), or an https:// base URL; overrides config")
+	_ = cmd.RegisterFlagCompletionFunc("mirror", comp.Fn(comp.MirrorNames))
 	return cmd
 }

@@ -83,3 +83,4 @@ user 级统一目录 `~/.barista/`（全平台一致，`os.UserHomeDir()` + `.ba
 | [design/executors.md](design/executors.md) | `barista mvn` / `barista java` / `barista gradle` 执行器、planExec、注入规则、启动模式 |
 | [design/doctor.md](design/doctor.md) | doctor 体检项与执行模型 |
 | [design/upgrade.md](design/upgrade.md) | 自更新流程、manifest、平台替换 |
+| [design/mirror.md](design/mirror.md) | 下载镜像：分域 mirror 配置、预设映射、回退与安全契约 |

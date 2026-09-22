@@ -10,10 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"barista/internal/cli/comp"
 	"barista/internal/download"
 	"barista/internal/gradle"
 	"barista/internal/output"
 	"barista/internal/toolversion"
+	"barista/internal/workspace"
 )
 
 func installCmd() *cobra.Command {
@@ -32,6 +34,12 @@ func installCmd() *cobra.Command {
 			}
 			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
 				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
+			}
+			if cmd.Flags().Changed("mirror") {
+				v, _ := cmd.Flags().GetString("mirror")
+				if err := download.ValidateMirror(download.DomainGradle, v); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -104,13 +112,45 @@ func installCmd() *cobra.Command {
 				}
 			}
 			showProgress := !jsonOut && output.StderrIsTerminal()
+			mirrorRaw := ""
+			if cmd.Flags().Changed("mirror") {
+				mirrorRaw, _ = cmd.Flags().GetString("mirror")
+			} else {
+				cwd, err := os.Getwd()
+				if err != nil {
+					fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+					return nil
+				}
+				cfg, err := workspace.LoadMergedConfig(cwd)
+				if err != nil {
+					fail(cmd, configErrInfo(err))
+					return nil
+				}
+				mirrorRaw = cfg.MirrorValueFor(download.DomainGradle)
+			}
+			mirrorBase, err := download.MirrorBase(download.DomainGradle, mirrorRaw)
+			if err != nil {
+				fail(cmd, &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()})
+				return nil
+			}
+			if mirrorBase == "" {
+				mirrorRaw = ""
+			}
+			fallbackURL := ""
+			if mirrorBase != "" {
+				fallbackURL = match.DownloadURL
+				match.DownloadURL = gradle.MirrorDownloadURL(match.DownloadURL, mirrorBase)
+			}
+			if !jsonOut {
+				fmt.Fprintln(os.Stderr, "downloading "+match.DownloadURL)
+			}
 			attempts, _ := cmd.Flags().GetInt("attempts")
 			start := time.Now()
-			result, e := gradle.InstallResolved(cmd.Context(), reg, regPath, match, name, &download.Options{
+			result, e := gradle.InstallResolved(cmd.Context(), reg, regPath, match, name, fallbackURL, &download.Options{
 				Attempts: attempts,
 				OnProgress: func(received, total int64) {
 					if showProgress {
-						fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
+						fmt.Fprint(os.Stderr, "\r"+output.ProgressLine(p, received, total, time.Since(start)))
 					}
 				},
 				OnRetry: func(attempt int, err error) {
@@ -118,6 +158,15 @@ func installCmd() *cobra.Command {
 						fmt.Fprintln(os.Stderr)
 					}
 					fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
+				},
+				OnFallback: func(fallbackURL string, err error) {
+					if showProgress {
+						fmt.Fprintln(os.Stderr)
+					}
+					if !jsonOut {
+						fmt.Fprintln(os.Stderr, p.Yellow("mirror unavailable, falling back to "+fallbackURL))
+					}
+					start = time.Now()
 				},
 			})
 			if showProgress {
@@ -131,8 +180,12 @@ func installCmd() *cobra.Command {
 			res.Path = filepath.ToSlash(result.Entry.Path)
 			res.Status = output.StatusOK
 			res.Detail = map[string]any{
-				"version": result.Entry.Version,
-				"managed": true,
+				"version":     result.Entry.Version,
+				"managed":     true,
+				"downloadUrl": result.DownloadURL,
+			}
+			if mirrorRaw != "" {
+				res.Detail["mirror"] = mirrorRaw
 			}
 			if requested != "" {
 				res.Detail["requestedVersion"] = requested
@@ -147,5 +200,7 @@ func installCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "register under this name (default: gradle-<version>)")
 	cmd.Flags().Bool("yes", false, "install the best match without asking when the requested version is not available")
 	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
+	cmd.Flags().String("mirror", "", "download mirror: official, a preset name (cn|tuna|huawei|tencent), or an https:// base URL; overrides config")
+	_ = cmd.RegisterFlagCompletionFunc("mirror", comp.Fn(comp.MirrorNames))
 	return cmd
 }

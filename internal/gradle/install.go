@@ -17,6 +17,7 @@ import (
 type InstallResult struct {
 	Entry            Entry
 	RequestedVersion string
+	DownloadURL      string
 }
 
 func ParseSHA256(data string) (string, error) {
@@ -69,8 +70,9 @@ func InstallDir(cfgValue string) (string, error) {
 // Install resolves version against the available list (exact match wins,
 // otherwise the best prefix match per MatchAvailable) and installs the match.
 // RequestedVersion in the result is set when the requested version was
-// substituted by a best match.
-func Install(ctx context.Context, reg *Registry, regPath, version, name string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
+// substituted by a best match. fallbackURL is passed through to
+// InstallResolved.
+func Install(ctx context.Context, reg *Registry, regPath, version, name, fallbackURL string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
 	if name != "" && reg.Find(name) != nil {
 		return nil, &output.ErrInfo{
 			Code:    output.CodeGradleExists,
@@ -89,7 +91,7 @@ func Install(ctx context.Context, reg *Registry, regPath, version, name string, 
 			Hint:    "list versions with: barista gradle available --all",
 		}
 	}
-	res, e := InstallResolved(ctx, reg, regPath, match, name, dlOpts)
+	res, e := InstallResolved(ctx, reg, regPath, match, name, fallbackURL, dlOpts)
 	if e != nil {
 		return nil, e
 	}
@@ -102,8 +104,11 @@ func Install(ctx context.Context, reg *Registry, regPath, version, name string, 
 // InstallResolved downloads the matched distribution (sha256-verified),
 // extracts it under the managed install dir, probes the result and registers
 // it. Resolution happens beforehand (see MatchAvailable), so callers can
-// surface a substitution before any download starts.
-func InstallResolved(ctx context.Context, reg *Registry, regPath string, match AvailableVersion, name string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
+// surface a substitution before any download starts. When fallbackURL is
+// non-empty, a failed download of match.DownloadURL (e.g. a mirror missing
+// the version) is retried once from fallbackURL; InstallResult.DownloadURL
+// records the source actually used.
+func InstallResolved(ctx context.Context, reg *Registry, regPath string, match AvailableVersion, name, fallbackURL string, dlOpts *download.Options) (*InstallResult, *output.ErrInfo) {
 	if name != "" && reg.Find(name) != nil {
 		return nil, &output.ErrInfo{
 			Code:    output.CodeGradleExists,
@@ -133,7 +138,13 @@ func InstallResolved(ctx context.Context, reg *Registry, regPath string, match A
 	tmpPath := tmp.Name()
 	_ = tmp.Close()
 	defer func() { _ = os.Remove(tmpPath) }()
-	if err := download.Download(ctx, match.DownloadURL, tmpPath, dlOpts); err != nil {
+	usedURL := match.DownloadURL
+	if fallbackURL != "" {
+		usedURL, err = download.WithFallback(ctx, match.DownloadURL, fallbackURL, tmpPath, dlOpts)
+	} else {
+		err = download.Download(ctx, match.DownloadURL, tmpPath, dlOpts)
+	}
+	if err != nil {
 		return nil, &output.ErrInfo{Code: output.CodeGradleDownloadFailed, Message: err.Error()}
 	}
 	wantSum := match.Checksum
@@ -158,7 +169,11 @@ func InstallResolved(ctx context.Context, reg *Registry, regPath string, match A
 		}
 	}
 	if err := VerifySHA256(tmpPath, wantSum); err != nil {
-		return nil, &output.ErrInfo{Code: output.CodeGradleChecksumMismatch, Message: err.Error()}
+		e := &output.ErrInfo{Code: output.CodeGradleChecksumMismatch, Message: err.Error()}
+		if fallbackURL != "" {
+			e.Hint = "the bytes came from a mirror; check your mirror configuration"
+		}
+		return nil, e
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, &output.ErrInfo{Code: output.CodeGradleInstallFailed, Message: err.Error()}
@@ -194,5 +209,5 @@ func InstallResolved(ctx context.Context, reg *Registry, regPath string, match A
 	if e := reg.Save(regPath); e != nil {
 		return nil, e
 	}
-	return &InstallResult{Entry: entry}, nil
+	return &InstallResult{Entry: entry, DownloadURL: usedURL}, nil
 }

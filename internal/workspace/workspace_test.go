@@ -210,3 +210,117 @@ func TestResolveURLAbsPath(t *testing.T) {
 		}
 	}
 }
+
+func TestParseConfigMirror(t *testing.T) {
+	valid := []string{
+		`{"download.mirror":"cn"}`,
+		`{"download.mirror":"official"}`,
+		`{"jdk.download.mirror":"tuna"}`,
+		`{"maven.download.mirror":"https://mirrors.example.com/apache"}`,
+		`{"gradle.download.mirror":"https://mirrors.example.com/gradle"}`,
+	}
+	for _, doc := range valid {
+		if _, err := parseConfig([]byte(doc), "config.json"); err != nil {
+			t.Errorf("parseConfig(%s): %v", doc, err)
+		}
+	}
+	invalid := []string{
+		`{"download.mirror":"bogus"}`,
+		`{"download.mirror":"https://mirrors.example.com/apache"}`,
+		`{"jdk.download.mirror":"https://mirrors.example.com/Adoptium"}`,
+		`{"jdk.download.mirror":"bogus"}`,
+		`{"maven.download.mirror":"bogus"}`,
+		`{"maven.download.mirror":"http://insecure.example.com/apache"}`,
+		`{"gradle.download.mirror":"ftp://mirrors.example.com/gradle"}`,
+	}
+	for _, doc := range invalid {
+		_, err := parseConfig([]byte(doc), "config.json")
+		if err == nil {
+			t.Errorf("parseConfig(%s): want error", doc)
+			continue
+		}
+		le, ok := err.(*LoadError)
+		if !ok || le.Code != "CONFIG_ERROR" {
+			t.Errorf("parseConfig(%s): want CONFIG_ERROR, got %v", doc, err)
+		}
+	}
+}
+
+func TestMergeConfigMirror(t *testing.T) {
+	user := ConfigFile{DownloadMirror: "cn", MavenDownloadMirror: "official"}
+	ws := ConfigFile{MavenDownloadMirror: "tuna", GradleDownloadMirror: "huawei"}
+	got := MergeConfig(user, ws)
+	want := ConfigFile{DownloadMirror: "cn", MavenDownloadMirror: "tuna", GradleDownloadMirror: "huawei"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("MergeConfig = %+v, want %+v", got, want)
+	}
+}
+
+func TestLoadMergedConfig(t *testing.T) {
+	home := setUserHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	userDoc := `{"parallel":20,"download.mirror":"tuna","maven.download.mirror":"huawei"}`
+	if err := os.WriteFile(filepath.Join(home, ".barista", "config.json"), []byte(userDoc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cf, err := LoadMergedConfig(t.TempDir())
+	if err != nil {
+		t.Fatalf("LoadMergedConfig outside workspace: %v", err)
+	}
+	if cf.Parallel != 20 || cf.DownloadMirror != "tuna" || cf.MavenDownloadMirror != "huawei" {
+		t.Errorf("outside workspace: got %+v", cf)
+	}
+
+	ws := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(ws, ".barista"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wsDoc := `{"parallel":4,"maven.download.mirror":"cn"}`
+	if err := os.WriteFile(filepath.Join(ws, ".barista", "config.json"), []byte(wsDoc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cf, err = LoadMergedConfig(filepath.Join(ws, "sub"))
+	if err != nil {
+		t.Fatalf("LoadMergedConfig inside workspace: %v", err)
+	}
+	want := ConfigFile{Parallel: 4, DownloadMirror: "tuna", MavenDownloadMirror: "cn"}
+	if !reflect.DeepEqual(cf, want) {
+		t.Errorf("merged = %+v, want %+v", cf, want)
+	}
+
+	if err := os.WriteFile(filepath.Join(ws, ".barista", "config.json"), []byte(`{"gradle.download.mirror":"bogus"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadMergedConfig(ws); err == nil {
+		t.Error("want CONFIG_ERROR for invalid workspace mirror")
+	}
+}
+
+func TestMirrorBaseFor(t *testing.T) {
+	cases := []struct {
+		name   string
+		cfg    ConfigFile
+		domain string
+		want   string
+	}{
+		{"unset", ConfigFile{}, "maven", ""},
+		{"official", ConfigFile{DownloadMirror: "official"}, "maven", ""},
+		{"global preset", ConfigFile{DownloadMirror: "tuna"}, "maven", "https://mirrors.tuna.tsinghua.edu.cn/apache"},
+		{"global preset without domain coverage", ConfigFile{DownloadMirror: "tuna"}, "gradle", ""},
+		{"domain key wins", ConfigFile{DownloadMirror: "tuna", MavenDownloadMirror: "huawei"}, "maven", "https://repo.huaweicloud.com/apache"},
+		{"domain official beats global", ConfigFile{DownloadMirror: "cn", GradleDownloadMirror: "official"}, "gradle", ""},
+		{"custom base", ConfigFile{MavenDownloadMirror: "https://mirrors.example.com/apache/"}, "maven", "https://mirrors.example.com/apache"},
+		{"jdk preset", ConfigFile{JDKDownloadMirror: "tuna"}, "jdk", "https://mirrors.tuna.tsinghua.edu.cn/Adoptium"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.cfg.MirrorBaseFor(tc.domain)
+			if err != nil || got != tc.want {
+				t.Errorf("MirrorBaseFor(%q) = %q, %v; want %q", tc.domain, got, err, tc.want)
+			}
+		})
+	}
+}

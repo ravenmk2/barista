@@ -37,6 +37,7 @@
   - temurin → Adoptium API
   - microsoft / corretto → permalink 直链，ArchiveURL 纯拼 URL
   - zulu / graalvm → `embeddedProvider` 读 go:embed 的 `internal/jdk/distros.json`（由 `scripts/gendistros.py` 定期刷新，URL 钉死无有效期、运行期零 API 调用）
+- 下载镜像（config `download.mirror` / `jdk.download.mirror` 或 `--mirror` flag 显式覆盖，详见 [mirror.md](mirror.md)）：仅 temurin 生效；镜像 URL 经官方 Adoptium API assets 查询解析文件名与 sha256 后拼 `<base>/<major>/jdk/<arch>/<os>/<filename>`，下载失败自动回退官方源一次（`WithFallback`，回退时 stderr 提示完整官方 URL），镜像路径按 API sha256 校验；asset 解析失败（含 API 未返回 checksum，视为不可校验而拒绝）降级为官方 URL + stderr 提示，降级路径 detail 不带 `mirror`。JSON detail 带 `downloadUrl`（实际使用 URL）与 `mirror`（配置的原始值，仅镜像生效时）
 - 下载骨架：断点续传（Range 头）+ 指数退避重试（默认 10 次，`--attempts` 可覆盖，4xx 不重试）；TTY 下 stderr 渲染进度条（百分比 / 速度 / ETA）
 - 实现 `ChecksumProvider` 的 provider（graalvm 嵌入了 sha256 钉值）下载后先校验 sha256，不符报 JDK_CHECKSUM_MISMATCH
 - 下载后解压到 `<installDir>/<name>`（剥归档首层目录；download 包统一防 zip-slip / 逃逸 symlink），probe 校验 major 匹配才注册（`managed: true`）；任何失败清理半成品目录
@@ -45,8 +46,9 @@
 
 - 复用同一 Provider / ChecksumProvider 与下载骨架（进度条 / 重试 / 校验相同），但不读注册表、不解压、不 probe
 - `--os` / `--arch` 缺省当前平台、可跨平台（非法值 exit 2）；`--output` 缺省当前目录（值是已存在目录或以路径分隔符结尾按目录拼接文件名，否则视为完整文件路径）
-- 文件名经 `download.ResolveFileName`：HEAD 跟随重定向，Content-Disposition 优先、其次最终 URL basename；失败静默回退合成名 `<distro>-jdk-<major>-<os>-<arch>` + 从最终 URL 识别的扩展名（distro 名含 jdk 省略 `-jdk` 段）
+- 文件名经 `download.ResolveFileName`：HEAD 跟随重定向，Content-Disposition 优先、其次最终 URL basename；失败静默回退合成名 `<distro>-jdk-<major>-<os>-<arch>` + 从最终 URL 识别的扩展名（distro 名含 jdk 省略 `-jdk` 段）；temurin 走镜像时跳过 HEAD，文件名直接取 asset 文件名
 - 目标已存在报 JDK_EXISTS；下载写 `<dest>.part` 成功后 rename，`.part` 留存重跑天然续传；sha256 不符删 `.part` 报 JDK_CHECKSUM_MISMATCH
+- 镜像行为同 install（仅 temurin，回退契约相同）；detail 的 `url` 为实际使用的下载 URL，配置了镜像时另带 `mirror`
 
 ## available
 

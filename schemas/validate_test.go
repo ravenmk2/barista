@@ -80,6 +80,30 @@ func TestValidate(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name:      "config mirrors valid",
+			schema:    "config",
+			doc:       `{"download.mirror":"cn","jdk.download.mirror":"tuna","maven.download.mirror":"https://mirrors.example.com/apache","gradle.download.mirror":"huawei"}`,
+			wantValid: true,
+		},
+		{
+			name:      "config download.mirror custom URL invalid",
+			schema:    "config",
+			doc:       `{"download.mirror":"https://mirrors.example.com/apache"}`,
+			wantPaths: []string{"download.mirror"},
+		},
+		{
+			name:      "config jdk mirror custom URL invalid",
+			schema:    "config",
+			doc:       `{"jdk.download.mirror":"https://mirrors.example.com/Adoptium"}`,
+			wantPaths: []string{"jdk.download.mirror"},
+		},
+		{
+			name:      "config maven mirror non-https invalid",
+			schema:    "config",
+			doc:       `{"maven.download.mirror":"http://mirrors.example.com/apache"}`,
+			wantPaths: []string{"maven.download.mirror"},
+		},
+		{
 			name:      "properties scalar values valid",
 			schema:    "properties",
 			doc:       `{"jdk":"17","maven.default":"maven-3.9","gradle.default":"gradle-8.10","gradle.user.home":".barista/gradle-home","git.fetch.prune":true,"git.pull.rebase":false,"threads":4,"future.key":"x"}`,

@@ -76,3 +76,24 @@ func TestInstallDir(t *testing.T) {
 		t.Errorf("default install dir = %q", got)
 	}
 }
+
+func TestMirrorArchiveURL(t *testing.T) {
+	official := "https://archive.apache.org/dist/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz"
+	cases := []struct {
+		name string
+		url  string
+		base string
+		want string
+	}{
+		{"tuna base", official, "https://mirrors.tuna.tsinghua.edu.cn/apache", "https://mirrors.tuna.tsinghua.edu.cn/apache/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz"},
+		{"empty base", official, "", official},
+		{"non-dist URL untouched", "https://example.com/other/x.tar.gz", "https://mirrors.example.com/apache", "https://example.com/other/x.tar.gz"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := MirrorArchiveURL(tc.url, tc.base); got != tc.want {
+				t.Errorf("MirrorArchiveURL(%q, %q) = %q, want %q", tc.url, tc.base, got, tc.want)
+			}
+		})
+	}
+}

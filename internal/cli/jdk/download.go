@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -41,7 +42,7 @@ func downloadCmd() *cobra.Command {
 			if n, _ := cmd.Flags().GetInt("attempts"); n < 1 {
 				return fmt.Errorf("invalid --attempts %d (want >= 1)", n)
 			}
-			return nil
+			return validateMirrorFlag(cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			*exitCode = 0
@@ -75,6 +76,7 @@ func downloadCmd() *cobra.Command {
 	cmd.Flags().String("arch", runtime.GOARCH, "target architecture (amd64|arm64)")
 	cmd.Flags().String("output", "", "destination directory or file path (default: current directory)")
 	cmd.Flags().Int("attempts", download.DefaultAttempts, "number of download attempts on transient failures")
+	addMirrorFlag(cmd)
 	_ = cmd.RegisterFlagCompletionFunc("os", comp.Fn(comp.TargetOSes))
 	_ = cmd.RegisterFlagCompletionFunc("arch", comp.Fn(comp.TargetArches))
 	_ = cmd.RegisterFlagCompletionFunc("output", comp.Dirs)
@@ -94,9 +96,21 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 		failRes(&output.ErrInfo{Code: output.CodeJDKUnsupportedPlatform, Message: err.Error()})
 		return
 	}
-	fileName, finalURL, _ := download.ResolveFileName(cmd.Context(), url)
-	if fileName == "" {
-		fileName = fallbackFileName(distro, major, goos, goarch, finalURL)
+	jsonOut, _ := cmd.Flags().GetBool("json")
+	mirrorURL, mirrorSum, mirrorRaw, mirrorWarn, me := resolveTemurinMirror(cmd.Context(), cmd, distro, major, goos, goarch)
+	if me != nil {
+		fail(cmd, me)
+		return
+	}
+	var fileName string
+	if mirrorURL != "" {
+		fileName = path.Base(mirrorURL)
+	} else {
+		var finalURL string
+		fileName, finalURL, _ = download.ResolveFileName(cmd.Context(), url)
+		if fileName == "" {
+			fileName = fallbackFileName(distro, major, goos, goarch, finalURL)
+		}
 	}
 	dest := resolveDestPath(outFlag, fileName)
 	if abs, err := filepath.Abs(dest); err == nil {
@@ -110,19 +124,25 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 		})
 		return
 	}
-	jsonOut, _ := cmd.Flags().GetBool("json")
+	primaryURL := url
+	if mirrorURL != "" {
+		primaryURL = mirrorURL
+	}
 	if !jsonOut {
-		fmt.Fprintln(os.Stderr, p.Dim("downloading "+url))
+		if mirrorWarn != "" {
+			fmt.Fprintln(os.Stderr, p.Yellow(mirrorWarn))
+		}
+		fmt.Fprintln(os.Stderr, "downloading "+primaryURL)
 	}
 	part := dest + ".part"
 	showProgress := !jsonOut && output.StderrIsTerminal()
 	attempts, _ := cmd.Flags().GetInt("attempts")
 	start := time.Now()
-	err = download.Download(cmd.Context(), url, part, &download.Options{
+	dlOpts := &download.Options{
 		Attempts: attempts,
 		OnProgress: func(received, total int64) {
 			if showProgress {
-				fmt.Fprintf(os.Stderr, "\r%-100s", output.ProgressLine(received, total, time.Since(start)))
+				fmt.Fprint(os.Stderr, "\r"+output.ProgressLine(p, received, total, time.Since(start)))
 			}
 		},
 		OnRetry: func(attempt int, err error) {
@@ -131,7 +151,22 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 			}
 			fmt.Fprintln(os.Stderr, p.Yellow(fmt.Sprintf("download failed: %v; retrying (attempt %d/%d)", err, attempt, attempts)))
 		},
-	})
+		OnFallback: func(fallbackURL string, err error) {
+			if showProgress {
+				fmt.Fprintln(os.Stderr)
+			}
+			if !jsonOut {
+				fmt.Fprintln(os.Stderr, p.Yellow("mirror unavailable, falling back to "+fallbackURL))
+			}
+			start = time.Now()
+		},
+	}
+	usedURL := url
+	if mirrorURL != "" {
+		usedURL, err = download.WithFallback(cmd.Context(), mirrorURL, url, part, dlOpts)
+	} else {
+		err = download.Download(cmd.Context(), url, part, dlOpts)
+	}
 	if showProgress {
 		fmt.Fprintln(os.Stderr)
 	}
@@ -140,7 +175,20 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 		return
 	}
 	var sum string
-	if cp, ok := prov.(jdk.ChecksumProvider); ok {
+	if mirrorSum != "" {
+		sum = mirrorSum
+		if !jsonOut {
+			fmt.Fprintln(os.Stderr, p.Dim("verifying sha256"))
+		}
+		if e := jdk.VerifySHA256(part, mirrorSum); e != nil {
+			if e.Code == output.CodeJDKChecksumMismatch {
+				e.Hint = "the bytes came from a mirror; check your mirror configuration"
+			}
+			_ = os.Remove(part)
+			failRes(e)
+			return
+		}
+	} else if cp, ok := prov.(jdk.ChecksumProvider); ok {
 		if s, ok := cp.ExpectedSHA256(major, goos, goarch); ok {
 			sum = s
 			if !jsonOut {
@@ -169,9 +217,12 @@ func runDownload(cmd *cobra.Command, p output.Palette, prov jdk.Provider, distro
 		"major":     major,
 		"os":        goos,
 		"arch":      goarch,
-		"url":       url,
+		"url":       usedURL,
 		"path":      filepath.ToSlash(dest),
 		"sizeBytes": fi.Size(),
+	}
+	if mirrorRaw != "" {
+		res.Detail["mirror"] = mirrorRaw
 	}
 	if sum != "" {
 		res.Detail["sha256"] = sum

@@ -34,6 +34,7 @@ type Options struct {
 	Backoff    time.Duration
 	OnProgress func(received, total int64)
 	OnRetry    func(attempt int, err error)
+	OnFallback func(fallbackURL string, err error)
 }
 
 type permanentError struct{ msg string }

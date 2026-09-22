@@ -10,7 +10,9 @@ import (
 	"strings"
 )
 
-var ArchiveBase = "https://archive.apache.org/dist/maven"
+var DistBase = "https://archive.apache.org/dist"
+
+var ArchiveBase = DistBase + "/maven"
 
 func ArchiveURL(version string) (string, error) {
 	segs, _, err := ParseVersion(version)
@@ -18,6 +20,16 @@ func ArchiveURL(version string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s/maven-%d/%s/binaries/apache-maven-%s-bin.tar.gz", ArchiveBase, segs[0], version, version), nil
+}
+
+// MirrorArchiveURL rewrites an official archive URL onto a mirror base URL
+// (the mirror serves the same dist tree layout); URLs not under DistBase are
+// returned unchanged.
+func MirrorArchiveURL(archiveURL, mirrorBase string) string {
+	if mirrorBase == "" || !strings.HasPrefix(archiveURL, DistBase) {
+		return archiveURL
+	}
+	return mirrorBase + strings.TrimPrefix(archiveURL, DistBase)
 }
 
 func ChecksumURL(archiveURL string) string {

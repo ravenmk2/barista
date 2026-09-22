@@ -23,6 +23,36 @@
       "enum": ["auto", "truecolor", "256", "16"],
       "default": "auto",
       "description": "Color depth when color is enabled; auto = detect from terminal, other values force truecolor/256/16-color output"
+    },
+    "download.mirror": {
+      "type": "string",
+      "enum": ["official", "cn", "tuna", "huawei", "tencent"],
+      "default": "official",
+      "description": "Global download mirror preset for JDK/Maven/Gradle binary downloads; only affects binary downloads — version metadata and checksums always come from official sources. Overridden per domain by jdk/maven/gradle.download.mirror"
+    },
+    "jdk.download.mirror": {
+      "type": "string",
+      "enum": ["official", "cn", "tuna", "huawei", "tencent"],
+      "default": "official",
+      "description": "Download mirror preset for JDK binary downloads; applies to temurin only (microsoft/corretto/zulu/graalvm always use official sources). Overrides download.mirror; only affects binary downloads — metadata and checksums always come from official sources"
+    },
+    "maven.download.mirror": {
+      "type": "string",
+      "anyOf": [
+        {"enum": ["official", "cn", "tuna", "huawei", "tencent"]},
+        {"pattern": "^https://"}
+      ],
+      "default": "official",
+      "description": "Download mirror for Maven binary downloads: a preset name or a custom https:// base URL mirroring the Apache dist tree. Overrides download.mirror; only affects binary downloads — version metadata and the sha512 checksum always come from official sources"
+    },
+    "gradle.download.mirror": {
+      "type": "string",
+      "anyOf": [
+        {"enum": ["official", "cn", "tuna", "huawei", "tencent"]},
+        {"pattern": "^https://"}
+      ],
+      "default": "official",
+      "description": "Download mirror for Gradle binary downloads: a preset name or a custom https:// base URL mirroring services.gradle.org/distributions. Overrides download.mirror; only affects binary downloads — /versions/all metadata and the sha256 checksum always come from official sources"
     }
   }
 }

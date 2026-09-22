@@ -36,6 +36,7 @@
 - 单 Provider：Apache archive（`archive.apache.org/dist/maven/maven-<major>/<version>/`），一律 tar.gz
 - 下载前先经 `Available` + `MatchAvailable` 解析版本：完全一致直接装；无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版（无 qualifier）优先于预发布，再取最高者（如 `3.9.12` → `3.9.16`、`3.9` → 最新 3.9.x、`4.0.0-rc-2` 在 4.0.0 final 发布后 → `4.0.0`，无稳定 4.0.x 时 → `4.0.0-rc-6`）；替换在下载前告知——TTY 下交互确认 `install best match <v>? [Y/n]`（默认 yes，回答 n 中止，结果 skipped / reason=aborted、exit 0），非 TTY / `--json` / `--yes` 不询问、只打 stderr 黄字（JSON detail 带 `requestedVersion`）；完全无匹配报 MAVEN_NOT_FOUND
 - 下载后强制 sha512 校验（`.sha512` 旁挂文件），不匹配报 MAVEN_CHECKSUM_MISMATCH
+- 下载镜像（config `download.mirror` / `maven.download.mirror` 或 `--mirror` flag 显式覆盖，详见 [mirror.md](mirror.md)）：配置了镜像时把官方 URL 的 `DistBase`（`https://archive.apache.org/dist`）前缀替换为镜像基址（`MirrorArchiveURL`，路径模板不变）作为主下载源，官方 URL 作回退（`WithFallback`，回退时 stderr 提示完整官方 URL）；sha512 校验值恒从官方 `.sha512` 取；JSON detail 带 `downloadUrl`（实际使用 URL）与 `mirror`（配置的原始值）
 
 ## config（内省）
 

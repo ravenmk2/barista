@@ -75,6 +75,15 @@ func fail(cmd *cobra.Command, e *output.ErrInfo) {
 	*exitCode = 2
 }
 
+func configErrInfo(err error) *output.ErrInfo {
+	e := &output.ErrInfo{Code: output.CodeConfigError, Message: err.Error()}
+	var le *workspace.LoadError
+	if errors.As(err, &le) {
+		e.Code, e.Message, e.Hint = le.Code, le.Message, le.Hint
+	}
+	return e
+}
+
 func loadRegistry(cmd *cobra.Command) (*gradle.Registry, string, bool) {
 	p, err := gradle.RegistryPath()
 	if err != nil {

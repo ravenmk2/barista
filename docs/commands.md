@@ -15,6 +15,17 @@ barista CLI 的完整命令参考。全局设计契约（分层、输出、退�
 
 文本输出的颜色由两级 config 的 `color`（`auto|always|never`，何时着色；`NO_COLOR` 环境变量优先于一切）与 `colorProfile`（`auto|truecolor|256|16`，色深；`auto` 按终端探测自动降级，其余值强制）控制。
 
+下载镜像由 4 个 config 键控制（user 级与 workspace 级 config.json 合并、workspace 覆盖 user，与 `parallel` 同一契约）：
+
+| 键                      | 取值                                                        | 作用域                          |
+| ----------------------- | ----------------------------------------------------------- | ------------------------------- |
+| `download.mirror`       | `official` / 预设名（`cn` `tuna` `huawei` `tencent`）       | 三域默认                        |
+| `jdk.download.mirror`   | 同上（仅预设，不接受自定义 URL）                            | `jdk install` / `jdk download`，仅 temurin 生效 |
+| `maven.download.mirror` | 预设名或自定义 `https://` 基址                              | `maven install`                 |
+| `gradle.download.mirror`| 预设名或自定义 `https://` 基址                              | `gradle install`                |
+
+分域键优先于全局键；`jdk install` / `jdk download` / `maven install` / `gradle install` 的 `--mirror` flag 显式给出时优先级最高（覆盖两级 config；`--mirror official` 临时禁用已配置的镜像）。镜像只替换二进制下载基址，版本元数据与校验和恒走官方；镜像不可达 / 404 时自动回退官方源一次（回退时 stderr 提示完整官方 URL），校验失败不静默回退（报 `*_CHECKSUM_MISMATCH`，hint 指向镜像配置）。详见 [design/mirror.md](design/mirror.md)。
+
 fang 框架另自带隐藏的 `man` 命令（生成 manpages）与 root 的 `--version` flag。
 
 ### 输出形态
@@ -236,8 +247,8 @@ barista deps order --label java
 
 - discover：幂等可重复；已注册路径报 skipped；是唯一走 `--parallel` 并发的 jdk 命令（每个候选路径一个探测任务）
 - add：名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能是纯数字（避免与 major 版本解析歧义），不符按用法错误处理（exit 2）；`--default` 同时设为该 major 的默认
-- install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试（默认 10 次，`--attempts` 覆盖，必须 >= 1），TTY 下 stderr 渲染进度条；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
-- download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
+- install：命名即 `<distro><major>`；下载支持断点续传与指数退避重试（默认 10 次，`--attempts` 覆盖，必须 >= 1），TTY 下 stderr 渲染进度条；`--mirror` 显式覆盖 config 的镜像配置（仅 temurin 生效，值域为 official / 预设名，`official` 临时禁用镜像）；JSON detail 恒带 `downloadUrl` 记录实际下载来源（镜像生效时另带 `mirror`）；嵌入数据的 distro（zulu / graalvm）带 sha256 钉值，下载后校验，不符报 `JDK_CHECKSUM_MISMATCH`；解压后 probe 校验 major 匹配才注册为 `managed: true`，任何失败清理半成品目录
+- download：只下载不安装——不读注册表、不解压、不 probe、不注册；`--os` / `--arch` 缺省当前平台，可跨平台下载（非法值报用法错误 exit 2）；文件名取 Content-Disposition 或最终 URL basename，拿不到回退 `<distro>-jdk-<major>-<os>-<arch>`+扩展名（distro 名含 jdk 时省略 `-jdk` 段）；`--output` 缺省当前目录，支持 `~` 展开，值是已存在目录或以路径分隔符结尾时作为目录拼接文件名，否则视为完整文件路径；目标已存在报 `JDK_EXISTS`（exit 1）；下载写 `<dest>.part` 成功后 rename，`.part` 留存时重跑天然断点续传；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（同 install）；JSON detail 的 `url` 为实际下载来源（回退后为官方 URL），镜像生效时另带 `mirror`；有 sha256 钉值时校验，不符删 `.part` 报 `JDK_CHECKSUM_MISMATCH`
 - available：列出各 distro 可安装项；数据源按 distro 而异——temurin 实时查 Adoptium API（用户显式调用才联网），microsoft / corretto 为静态 major 列表（version 留空，permalink 始终指向最新 GA），zulu / graalvm 读嵌入二进制的 distros.json（离线，由 `scripts/gendistros.py` 定期刷新）；按 distro + major 升序输出，tags 标记 `lts` / `latest`（最新 LTS）/ `installed`（对照注册表）/ `unsupported-platform`；网络失败报 `JDK_AVAILABLE_FAILED`（exit 1）
 - which 解析：传 major 先取该 major 的 default，否则取最新；传 name 精确匹配；非 `--pathonly` 时恒输出 JSON envelope（不受 `--json` 影响），解析失败 exit 1
 - env：与 which/path 同款解析；默认输出 JAVA_HOME 与 PATH（前置 `<jdk>/bin`）导出语句；`--shell` 支持别名（bash/zsh→sh，pwsh/ps→powershell），缺省自动检测当前 shell（Windows 按父进程名，其次 MSYSTEM/SHELL 环境标记；Unix 读 `$SHELL`），检测不到回退平台默认（Windows → powershell，其余 → sh）；`--json` 时改输出 envelope（含 javaHome/bin/shell），解析失败 exit 1
@@ -278,7 +289,7 @@ barista jdk which 17
 
 - add / discover / install 的自动命名为 `maven-<version>`（完整版本号含 qualifier，如 `maven-3.9.11` / `maven-4.0.0-rc-4`），冲突自动追加 `-1` / `-2`；add 与 install 均支持 `--name` 指定注册名，名称必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号（如 `3.9` / `3.9.9`，避免与版本解析歧义），不符按失败结果报 CONFIG_ERROR；install 的 `--name` 与已注册名冲突报 MAVEN_EXISTS；add 的 `--default` 同时设为默认
 - set-default：对 name 校验同一名称模式 `[a-z0-9][a-z0-9._-]*`（不符为用法错误，exit 2），但不查版本号形态（remove/uninstall/set-default 本就强制精确名，不走模糊解析）
-- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
+- install：先查 Apache archive 可用版本，无完全匹配时按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者（`MatchAvailable`，与 Resolve 放宽语义一致）；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`；detail 恒带 `downloadUrl` 记录实际下载来源，镜像生效时另带 `mirror`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（official / 预设名 / 自定义 `https://` 基址，`official` 临时禁用镜像）；完全无匹配报 MAVEN_NOT_FOUND；解压后 probe 校验版本与解析结果完全一致，失败清理目录
 - available：抓取 archive.apache.org 目录列表（与 install 同一来源），默认每个 minor 线只列最新版本，`--all` 列全部；text 输出 VERSION/TAGS 表（latest / installed 标记，installed 按版本与注册表比对）；联网失败报 MAVEN_AVAILABLE_FAILED
 - which 版本解析逐级放宽：`3.9.9` → `3.9` → `3`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `maven.default` / `jdk` 覆盖 user 注册表字段
@@ -424,7 +435,7 @@ barista gradle [flags] -- <gradle args...>
 - 只有 script 启动：Unix 直接 `bin/gradle`，Windows 经 `cmd /c bin/gradle.bat`（无 mvn 的 `--launch` 对应物）；解析到 JDK 时子进程 JAVA_HOME 被替换为该 JDK；Gradle 子进程非零退出时 barista exit 1
 - add / discover / install 的自动命名为 `gradle-<version>`（完整版本号含 qualifier，如 `gradle-9.0.0-rc-1`），冲突自动追加 `-1` / `-2`；`--name` 规则同 maven 组（必须匹配 `[a-z0-9][a-z0-9._-]*` 且不能形如版本号）；add 的 `--default` 同时设为默认
 - 固有局限：预发行版发行包的 jar 用裸基础版本命名（probe 不起子进程，读不出 qualifier），add / discover 对预发行版 home 只能注册基础版本（如 `9.0.0`）；install 不受此限，注册完整版本号（如 `9.0.0-rc-1`）
-- install：先经 available 列表解析版本，无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
+- install：先经 available 列表解析版本，无完全匹配按数字段前缀放宽——最长前缀优先，同一前缀层级内稳定版优先于预发布，再取最高者；替换在下载前告知，TTY 下交互确认（`[Y/n]` 默认 yes，回答 n 中止为 skipped、exit 0），非 TTY / `--json` / `--yes` 不询问只警告（JSON detail 带 `requestedVersion`；detail 恒带 `downloadUrl` 记录实际下载来源，镜像生效时另带 `mirror`）；`--attempts` 设置下载尝试次数（默认 10，必须 >= 1）；`--mirror` 显式覆盖 config 的镜像配置（official / 预设名 / 自定义 `https://` 基址，`official` 临时禁用镜像）；sha256 优先取 `/versions/all` 内联 checksum，缺省时下载 checksumUrl 旁挂文件，不匹配报 `GRADLE_CHECKSUM_MISMATCH`
 - available：数据源 `services.gradle.org/versions/all`，过滤 snapshot / nightly / releaseNightly / broken；默认只列两个最新 major 线各 minor 的最新 final 版本（预发布只随 `--all` 出现）；tags 标记 latest / installed / rc / milestone；联网失败报 `GRADLE_AVAILABLE_FAILED`
 - which 版本解析逐级放宽：`8.10.1` → `8.10` → `8`；非 `--pathonly` 时恒输出 JSON envelope，解析失败 exit 1
 - 生效优先级：workspace 配置 `gradle.default` / `jdk` 覆盖 user 注册表字段
